@@ -1,11 +1,19 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { AdminUser } from '../../types';
 import { postgresStore } from '../../db/store.ts';
 import { pool } from '../../db/index.ts';
 
 const TOKEN_EXPIRY = '7d';
+
+const deriveScryptKey = (password: string, salt: Buffer, keyLength: number, options: { N: number; r: number; p: number; maxmem: number }) =>
+  new Promise<Buffer>((resolve, reject) => {
+    scryptCallback(password, salt, keyLength, options, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey as Buffer);
+    });
+  });
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -99,7 +107,7 @@ export class AuthService {
       );
       const account = accountResult.rows[0];
       if (account) {
-        const validPassword = account.is_active && await bcrypt.compare(passwordPlain, account.password_hash);
+        const validPassword = account.is_active && await this.verifyPassword(passwordPlain, account.password_hash);
         if (!validPassword) {
           await this.recordFailedLogin(cleanId, clientIp, userAgent);
           return { success: false, error: 'Invalid username/email or password.' };
@@ -209,7 +217,7 @@ export class AuthService {
 
   static async updateAccountPassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
     const result = await pool.query('SELECT password_hash FROM admin_accounts WHERE id = $1 AND is_active = true', [id]);
-    if (!result.rows[0] || !(await bcrypt.compare(currentPassword, result.rows[0].password_hash))) {
+    if (!result.rows[0] || !(await this.verifyPassword(currentPassword, result.rows[0].password_hash))) {
       throw new Error('Current password is incorrect.');
     }
     const passwordHash = await this.hashPassword(newPassword);
@@ -230,8 +238,31 @@ export class AuthService {
     return user;
   }
 
+  static async verifyPassword(password: string, storedHash: string): Promise<boolean> {
+    if (!storedHash.startsWith('scrypt
+}
+)) {
+      try { return await bcrypt.compare(password, storedHash); } catch { return false; }
+    }
+    try {
+      const [, nValue, rValue, pValue, saltValue, keyValue] = storedHash.split('
+}
+);
+      const N = Number(nValue), r = Number(rValue), p = Number(pValue);
+      if (!Number.isInteger(N) || N < 16384 || N > 131072 || !Number.isInteger(r) || r < 1 || r > 16 || !Number.isInteger(p) || p < 1 || p > 4) return false;
+      const salt = Buffer.from(saltValue, 'base64');
+      const expected = Buffer.from(keyValue, 'base64');
+      if (salt.length < 16 || expected.length !== 64) return false;
+      const actual = await deriveScryptKey(password, salt, expected.length, { N, r, p, maxmem: 128 * 1024 * 1024 });
+      return timingSafeEqual(actual, expected);
+    } catch {
+      return false;
+    }
+  }
+
   static async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt(12);
-    return bcrypt.hash(password, salt);
+    const salt = randomBytes(16);
+    const derivedKey = await deriveScryptKey(password, salt, 64, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+    return `scrypt$32768$8$1${salt.toString('base64')}${derivedKey.toString('base64')}`;
   }
 }
