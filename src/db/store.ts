@@ -1450,8 +1450,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveService(item: Partial<ServiceItem> & {
-    await this.requireDatabase(); title: string }): Promise<ServiceItem> {
+  public async saveService(item: Partial<ServiceItem> & { title: string }): Promise<ServiceItem> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'serv-' + Date.now();
     const serviceItem: ServiceItem = {
@@ -1558,8 +1558,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveWebProject(item: Partial<WebProject> & {
-    await this.requireDatabase(); title: string }): Promise<WebProject> {
+  public async saveWebProject(item: Partial<WebProject> & { title: string }): Promise<WebProject> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'web-' + Date.now();
     const webItem: WebProject = {
@@ -1672,8 +1672,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveGraphicProject(item: Partial<GraphicProject> & {
-    await this.requireDatabase(); title: string }): Promise<GraphicProject> {
+  public async saveGraphicProject(item: Partial<GraphicProject> & { title: string }): Promise<GraphicProject> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'graph-' + Date.now();
     const graphItem: GraphicProject = {
@@ -1778,8 +1778,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveTestimonial(item: Partial<Testimonial> & {
-    await this.requireDatabase(); clientName: string }): Promise<Testimonial> {
+  public async saveTestimonial(item: Partial<Testimonial> & { clientName: string }): Promise<Testimonial> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'test-' + Date.now();
     const testItem: Testimonial = {
@@ -1883,8 +1883,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveFounder(item: Partial<Founder> & {
-    await this.requireDatabase(); name: string; role: string; bio: string; imageUrl: string }): Promise<Founder> {
+  public async saveFounder(item: Partial<Founder> & { name: string; role: string; bio: string; imageUrl: string }): Promise<Founder> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'founder-' + Date.now();
     const founderItem: Founder = {
@@ -1999,8 +1999,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveSocialLink(item: Partial<SocialLink> & {
-    await this.requireDatabase(); platform: string; url: string }): Promise<SocialLink> {
+  public async saveSocialLink(item: Partial<SocialLink> & { platform: string; url: string }): Promise<SocialLink> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || item.platform.toLowerCase();
     const socialItem: SocialLink = {
@@ -2165,9 +2165,9 @@ export class PostgresStore {
   // ==========================================
 
   public async recordActivity(
-    data: Omit<ActivityLog, 'id' | 'timestamp'> & {
-    await this.requireDatabase(); id?: string; timestamp?: string }
+    data: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
   ): Promise<ActivityLog> {
+    await this.requireDatabase();
     const id = data.id || `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const timestamp = data.timestamp || new Date().toISOString();
 
