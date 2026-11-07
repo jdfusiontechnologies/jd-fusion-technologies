@@ -19,11 +19,22 @@ function constantTimeStringEqual(actual: string, expected: string): boolean {
   const actualBuffer = Buffer.from(actual, 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
   if (actualBuffer.length !== expectedBuffer.length) {
-    // Perform a comparison anyway so length mismatch does not create a fast path.
     timingSafeEqual(actualBuffer, actualBuffer);
     return false;
   }
   return timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+export interface AdminAccountSession {
+  id: string;
+  email: string;
+  name: string;
+  role: 'super_admin' | 'admin' | 'user';
+  permissions: string[];
+  mustChangePassword: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  lastLoginAt?: string | null;
 }
 
 export class AuthService {
@@ -39,30 +50,14 @@ export class AuthService {
       );
       const attempts = Number(result.rows[0]?.attempts || 0);
       if (attempts < 5) return { limited: false };
-
       const oldestAttempt = result.rows[0]?.oldest_attempt
         ? new Date(result.rows[0].oldest_attempt).getTime()
         : Date.now();
-      const retryAfterSeconds = Math.max(1, Math.ceil((oldestAttempt + 15 * 60 * 1000 - Date.now()) / 1000));
-      return { limited: true, retryAfterSeconds };
+      return { limited: true, retryAfterSeconds: Math.max(1, Math.ceil((oldestAttempt + 900000 - Date.now()) / 1000)) };
     } catch (error) {
-      // Fail closed: a database outage must not disable login throttling.
       console.error('[Auth] Persistent login rate-limit check failed:', error);
       return { limited: true, retryAfterSeconds: 60 };
     }
-  }
-
-  /**
-   * Credentials are deliberately managed through deployment secrets.
-   * A password/profile change cannot be persisted by mutating a serverless
-   * process; the admin must update Vercel environment variables and redeploy.
-   */
-  static updatePassword(_newPassword: string): never {
-    throw new Error('Administrator credentials are managed in deployment environment variables. Update ADMIN_PASSWORD or ADMIN_PASSWORD_HASH in Vercel, then redeploy.');
-  }
-
-  static updateProfile(_name?: string, _email?: string): never {
-    throw new Error('Administrator profile is managed in deployment environment variables. Update ADMIN_NAME and ADMIN_EMAIL in Vercel, then redeploy.');
   }
 
   static async authenticateAdmin(
@@ -70,17 +65,8 @@ export class AuthService {
     passwordPlain: string,
     clientIp: string,
     userAgent?: string
-  ): Promise<{ success: boolean; token?: string; user?: AdminUser; error?: string }> {
-    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-    const adminUsername = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
-    const adminName = (process.env.ADMIN_NAME || 'JD Fusion Administrator').trim();
-    const configuredPassword = process.env.ADMIN_PASSWORD || '';
-    const configuredPasswordHash = process.env.ADMIN_PASSWORD_HASH || '';
-
-    if (!adminEmail || (!configuredPassword && !configuredPasswordHash)) {
-      return { success: false, error: 'Admin authentication is not configured. Set ADMIN_EMAIL and ADMIN_PASSWORD (or ADMIN_PASSWORD_HASH) in Vercel.' };
-    }
-
+  ): Promise<{ success: boolean; token?: string; user?: AdminUser & { permissions?: string[]; mustChangePassword?: boolean }; error?: string }> {
+    const cleanId = (identifier || '').trim().toLowerCase();
     let jwtSecret: string;
     try {
       jwtSecret = getJwtSecret();
@@ -103,70 +89,145 @@ export class AuthService {
       return { success: false, error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.` };
     }
 
-    const cleanId = (identifier || '').trim().toLowerCase();
+    // Database-backed accounts take precedence over the legacy environment account.
+    try {
+      const accountResult = await pool.query(
+        `SELECT id, email, name, password_hash, role, permissions, is_active, must_change_password,
+                created_at, updated_at, last_login_at
+         FROM admin_accounts WHERE lower(email) = $1 LIMIT 1`,
+        [cleanId]
+      );
+      const account = accountResult.rows[0];
+      if (account) {
+        const validPassword = account.is_active && await bcrypt.compare(passwordPlain, account.password_hash);
+        if (!validPassword) {
+          await this.recordFailedLogin(cleanId, clientIp, userAgent);
+          return { success: false, error: 'Invalid username/email or password.' };
+        }
+        const permissions = Array.isArray(account.permissions) ? account.permissions : [];
+        await pool.query('UPDATE admin_accounts SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1', [account.id]);
+        const user: AdminUser & { permissions: string[]; mustChangePassword: boolean } = {
+          id: account.id,
+          email: account.email,
+          name: account.name,
+          role: account.role,
+          permissions,
+          mustChangePassword: account.must_change_password,
+          createdAt: new Date(account.created_at).toISOString(),
+          updatedAt: new Date(account.updated_at).toISOString(),
+          lastLoginAt: new Date().toISOString(),
+        };
+        await postgresStore.recordActivity({
+          type: 'login_success',
+          title: 'Admin Login Successful',
+          description: `${user.name} (${user.email}) logged in successfully from IP ${clientIp}.`,
+          severity: 'success',
+          ip: clientIp,
+          userAgent,
+          path: '/api/auth/login',
+          metadata: { user: user.name, email: user.email, role: user.role },
+        });
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: user.role, permissions, mustChangePassword: user.mustChangePassword },
+          jwtSecret,
+          { expiresIn: TOKEN_EXPIRY }
+        );
+        return { success: true, token, user };
+      }
+    } catch (error: any) {
+      console.error('[Auth] Database account authentication failed:', error);
+      return { success: false, error: 'Account sign-in is temporarily unavailable. Please try again.' };
+    }
+
+    // Backward-compatible legacy administrator login.
+    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminUsername = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
+    const adminName = (process.env.ADMIN_NAME || 'JD Fusion Administrator').trim();
+    const configuredPassword = process.env.ADMIN_PASSWORD || '';
+    const configuredPasswordHash = process.env.ADMIN_PASSWORD_HASH || '';
+    if (!adminEmail || (!configuredPassword && !configuredPasswordHash)) {
+      return { success: false, error: 'Admin authentication is not configured.' };
+    }
     const validIdentifier = cleanId === adminEmail || (Boolean(adminUsername) && cleanId === adminUsername);
     let validPassword = false;
     if (configuredPasswordHash) {
-      try {
-        validPassword = await bcrypt.compare(passwordPlain, configuredPasswordHash);
-      } catch {
-        validPassword = false;
-      }
+      try { validPassword = await bcrypt.compare(passwordPlain, configuredPasswordHash); } catch { validPassword = false; }
     } else {
       validPassword = constantTimeStringEqual(passwordPlain, configuredPassword);
     }
-
     if (!validIdentifier || !validPassword) {
-      await postgresStore.recordActivity({
-        type: 'login_failed',
-        title: 'Failed Admin Login Attempt',
-        description: `Failed admin login attempt for identifier '${cleanId}' from IP ${clientIp}.`,
-        severity: 'warning',
-        ip: clientIp,
-        userAgent,
-        path: '/api/auth/login',
-        metadata: { attemptedIdentifier: cleanId },
-      });
+      await this.recordFailedLogin(cleanId, clientIp, userAgent);
       return { success: false, error: 'Invalid username/email or password.' };
     }
 
     const now = new Date().toISOString();
-    const safeUser: AdminUser = {
-      id: 'admin-env',
-      email: adminEmail,
-      name: adminName,
-      role: 'super_admin',
-      createdAt: now,
-      updatedAt: now,
-      lastLoginAt: now,
-    };
-
+    const user: AdminUser = { id: 'admin-env', email: adminEmail, name: adminName, role: 'super_admin', createdAt: now, updatedAt: now, lastLoginAt: now };
     await postgresStore.recordActivity({
       type: 'login_success',
       title: 'Admin Login Successful',
-      description: `${safeUser.name} (${safeUser.email}) logged in successfully from IP ${clientIp}.`,
-      severity: 'success',
-      ip: clientIp,
-      userAgent,
-      path: '/api/auth/login',
-      metadata: { user: safeUser.name, email: safeUser.email },
+      description: `${user.name} (${user.email}) logged in successfully from IP ${clientIp}.`,
+      severity: 'success', ip: clientIp, userAgent, path: '/api/auth/login',
+      metadata: { user: user.name, email: user.email },
     });
-
-    const token = jwt.sign(
-      { id: safeUser.id, email: safeUser.email, role: safeUser.role },
-      jwtSecret,
-      { expiresIn: TOKEN_EXPIRY }
-    );
-    return { success: true, token, user: safeUser };
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, { expiresIn: TOKEN_EXPIRY });
+    return { success: true, token, user };
   }
 
-  static verifyToken(token: string): { id: string; email: string; role: string } | null {
+  private static async recordFailedLogin(identifier: string, ip: string, userAgent?: string): Promise<void> {
+    await postgresStore.recordActivity({
+      type: 'login_failed',
+      title: 'Failed Admin Login Attempt',
+      description: `Failed admin login attempt for identifier '${identifier}' from IP ${ip}.`,
+      severity: 'warning', ip, userAgent, path: '/api/auth/login',
+      metadata: { attemptedIdentifier: identifier },
+    });
+  }
+
+  static verifyToken(token: string): { id: string; email: string; role: string; permissions?: string[]; mustChangePassword?: boolean } | null {
     try {
-      const decoded = jwt.verify(token, getJwtSecret()) as { id: string; email: string; role: string };
-      return decoded;
-    } catch {
-      return null;
+      return jwt.verify(token, getJwtSecret()) as { id: string; email: string; role: string; permissions?: string[]; mustChangePassword?: boolean };
+    } catch { return null; }
+  }
+
+  static async getAccountSession(id: string): Promise<AdminAccountSession | null> {
+    const result = await pool.query(
+      `SELECT id, email, name, role, permissions, must_change_password, is_active, created_at, updated_at, last_login_at
+       FROM admin_accounts WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    const row = result.rows[0];
+    if (!row || !row.is_active) return null;
+    return {
+      id: row.id, email: row.email, name: row.name, role: row.role,
+      permissions: Array.isArray(row.permissions) ? row.permissions : [],
+      mustChangePassword: Boolean(row.must_change_password),
+      createdAt: new Date(row.created_at).toISOString(),
+      updatedAt: new Date(row.updated_at).toISOString(),
+      lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : null,
+    };
+  }
+
+  static async updateAccountPassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
+    const result = await pool.query('SELECT password_hash FROM admin_accounts WHERE id = $1 AND is_active = true', [id]);
+    if (!result.rows[0] || !(await bcrypt.compare(currentPassword, result.rows[0].password_hash))) {
+      throw new Error('Current password is incorrect.');
     }
+    const passwordHash = await this.hashPassword(newPassword);
+    await pool.query(
+      'UPDATE admin_accounts SET password_hash = $1, must_change_password = false, updated_at = NOW() WHERE id = $2',
+      [passwordHash, id]
+    );
+  }
+
+  static async updateAccountProfile(id: string, name: string, email: string): Promise<AdminAccountSession> {
+    const result = await pool.query(
+      'UPDATE admin_accounts SET name = $1, email = lower($2), updated_at = NOW() WHERE id = $3 RETURNING id',
+      [name.trim(), email.trim(), id]
+    );
+    if (!result.rows[0]) throw new Error('Account not found.');
+    const user = await this.getAccountSession(id);
+    if (!user) throw new Error('Account is inactive.');
+    return user;
   }
 
   static async hashPassword(password: string): Promise<string> {
