@@ -60,6 +60,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquareQuote },
     { id: 'homepage', label: 'Hero & Homepage', icon: Home },
     { id: 'about', label: 'About & Mission', icon: Info },
+    { id: 'founders', label: 'Founders & Leadership', icon: Users },
     { id: 'contact', label: 'Contact & Location', icon: Phone },
     { id: 'socials', label: 'Social Channels', icon: Share2 },
     { id: 'seo', label: 'SEO & Meta Tags', icon: Search },
