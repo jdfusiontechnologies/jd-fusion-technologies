@@ -69,7 +69,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'settings', label: 'System & Backup', icon: Settings },
   ];
 
-  const handleTabClick = (tabId: string) => {
+  const permissionTabs: Record<string, string> = { inquiries: 'inquiries', services: 'services', testimonials: 'testimonials', about: 'about', media: 'media', settings: 'settings', seo: 'seo', 'web-projects': 'web-projects' };\n  const visibleNavItems = admin?.role === 'super_admin' || admin?.id === 'admin-env'\n    ? navItems\n    : navItems.filter((item) => item.id === 'dashboard' ? false : Boolean(admin?.permissions?.includes(permissionTabs[item.id])));\n  const navForCurrentSession = admin?.mustChangePassword ? navItems.filter((item) => item.id === 'settings') : visibleNavItems;\n\n  const handleTabClick = (tabId: string) => {
     onSelectTab(tabId);
     setIsMobileSidebarOpen(false);
   };
@@ -136,7 +136,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
           {/* Nav List */}
           <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
-            {navItems.map((item) => {
+            {navForCurrentSession.map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
               return (
