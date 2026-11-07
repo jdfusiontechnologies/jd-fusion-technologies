@@ -639,7 +639,7 @@ export class PostgresStore {
 
       console.log('[PostgresStore] Seeding complete in PostgreSQL!');
     } catch (error: any) {
-      console.warn('[PostgresStore] Database seeding note (using in-memory fallback):', error?.message || error);
+      throw new Error('Database initialization seeding failed; startup cannot be marked healthy.', { cause: error });
     }
   }
 
@@ -2185,13 +2185,7 @@ export class PostgresStore {
       metadata: data.metadata,
     };
 
-    // Keep in-memory copy (limit to 500)
-    this.memoryActivityLogs.unshift(logEntry);
-    if (this.memoryActivityLogs.length > 500) {
-      this.memoryActivityLogs.pop();
-    }
-
-    // Persist to PostgreSQL
+    // Persist to PostgreSQL before reporting success or updating the local cache.
     try {
       await db.insert(activityLogs).values({
         id: logEntry.id,
@@ -2210,6 +2204,8 @@ export class PostgresStore {
         throw new Error('Persistent database operation failed; no change was confirmed.', { cause: dbErr });
       }
 
+    this.memoryActivityLogs.unshift(logEntry);
+    if (this.memoryActivityLogs.length > 500) this.memoryActivityLogs.pop();
     return logEntry;
   }
 
