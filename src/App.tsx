@@ -115,7 +115,7 @@ const AdminRouteWrapper: React.FC<{
       <AdminLoginView
         onSuccess={() => {
           fetchAdminData();
-          setAdminTab('dashboard');
+          setAdminTab(firstAllowedTab);
         }}
         onBackToSite={() => navigate('/')}
       />
@@ -271,7 +271,7 @@ const MainAppContent: React.FC = () => {
 
       if (fullSiteData) {
         setAdminData(fullSiteData);
-        setPublicData({
+        if (fullSiteData.settings) setPublicData({
           settings: fullSiteData.settings,
           about: fullSiteData.about,
           contact: fullSiteData.contact,
