@@ -38,7 +38,7 @@ JD Fusion Technologies combines cutting-edge frontend engineering with resilient
    - JWT authentication, bcrypt password hashing, IP rate limiting, and brute-force threat defense logging.
 8. **Universal Database Compatibility**:
    - Supports **Free Neon Serverless PostgreSQL** via Drizzle ORM.
-   - Built-in resilient in-memory/JSON store ensures the app always boots cleanly and functions without downtime even before database connection strings are configured.
+   - Public pages can fall back to bundled read-only content if the database is unavailable. Admin writes, enquiries, visitor tracking, and authentication require a healthy PostgreSQL connection and return an error rather than claiming unsaved data was stored.
 
 ---
 
