@@ -512,14 +512,54 @@ export class PostgresStore {
 
   public async ensureTablesExist(): Promise<void> {
     if (!isPostgresConfigured) throw new Error('DATABASE_URL or POSTGRES_URL is required for persistent database storage.');
-    const expectedTables = ['users','site_settings','about_content','services','web_projects','graphic_projects','testimonials','inquiries','contact_settings','location_settings','social_links','media_files','media_blobs','seo_settings','activity_logs','founders','visitor_visits','visitor_daily_rollups'];
+
+    const expectedColumns: Record<string, string[]> = {
+      users: ['id','uid','email','name','role','created_at','updated_at','last_login_at'],
+      site_settings: ['id','site_name','brand_name','tagline','logo_url','icon_url','hero_headline','hero_subheadline','hero_badge_text','primary_cta_text','secondary_cta_text','updated_at'],
+      about_content: ['id','title','intro','bio','mission','vision','approach','highlights','updated_at'],
+      services: ['id','title','category','icon_name','short_description','full_description','features','display_order','is_published','is_featured','created_at','updated_at'],
+      web_projects: ['id','title','category','description','main_image','additional_images','technologies','project_url','github_url','display_order','is_featured','is_published','created_at','updated_at'],
+      graphic_projects: ['id','title','category','description','main_image','gallery_images','tags','display_order','is_featured','is_published','created_at','updated_at'],
+      testimonials: ['id','client_name','client_company','client_role','message','client_image','rating','display_order','is_featured','is_published','created_at','updated_at'],
+      founders: ['id','name','role','bio','image_url','linkedin_url','twitter_url','github_url','email','specialties','quote','display_order','is_published','created_at','updated_at'],
+      inquiries: ['id','name','email','phone','service','description','preferred_contact','status','created_at','updated_at'],
+      contact_settings: ['id','email','phone','whatsapp','description','business_hours','updated_at'],
+      location_settings: ['id','location_name','address','map_link','coordinates','description','updated_at'],
+      social_links: ['id','platform','platform_name','url','icon','display_order','is_published','updated_at'],
+      media_files: ['id','filename','original_name','mime_type','size','url','provider','created_at'],
+      media_blobs: ['id','data','mime_type','created_at'],
+      seo_settings: ['id','site_title','meta_description','og_image_url','keywords','canonical_url','robots_directive','updated_at'],
+      activity_logs: ['id','type','title','description','severity','ip','user_agent','location','path','metadata','created_at'],
+      visitor_visits: ['id','ip','path','user_agent','referrer','device_type','visited_at'],
+      visitor_daily_rollups: ['id','date_key','total_visits','unique_visitors','top_path','updated_at'],
+    };
+
+    const tableNames = Object.keys(expectedColumns);
     const result = await pool.query(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = ANY($1::text[])`,
-      [expectedTables]
+      `SELECT table_name, column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+      [tableNames]
     );
-    const existing = new Set(result.rows.map((row: { table_name: string }) => row.table_name));
-    const missing = expectedTables.filter((name) => !existing.has(name));
-    if (missing.length) throw new Error(`Database schema is incomplete. Missing tables: ${missing.join(', ')}. Apply the existing Drizzle schema before deploying.`);
+    const actual = new Map<string, Set<string>>();
+    for (const row of result.rows as Array<{ table_name: string; column_name: string }>) {
+      if (!actual.has(row.table_name)) actual.set(row.table_name, new Set());
+      actual.get(row.table_name)!.add(row.column_name);
+    }
+
+    const problems: string[] = [];
+    for (const [table, columns] of Object.entries(expectedColumns)) {
+      const found = actual.get(table);
+      if (!found) {
+        problems.push(`missing table ${table}`);
+        continue;
+      }
+      const missingColumns = columns.filter((column) => !found.has(column));
+      if (missingColumns.length) problems.push(`${table}: missing columns ${missingColumns.join(', ')}`);
+    }
+    if (problems.length) {
+      throw new Error(`Database schema is incomplete or incompatible: ${problems.join('; ')}. No automatic schema changes were made.`);
+    }
   }
 
   public async initSeedIfNeeded(): Promise<void> {
