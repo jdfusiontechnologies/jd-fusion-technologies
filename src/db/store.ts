@@ -2207,7 +2207,7 @@ export class PostgresStore {
         createdAt: new Date(timestamp),
       });
     } catch (dbErr) {
-        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: dbErr });
       }
 
     return logEntry;
