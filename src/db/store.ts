@@ -1353,6 +1353,7 @@ export class PostgresStore {
           .returning();
 
         if (updated) {
+          this.invalidateCache();
           return {
             id: updated.id,
             email: updated.email,
@@ -1403,6 +1404,7 @@ export class PostgresStore {
           .returning();
 
         if (updated) {
+          this.invalidateCache();
           return {
             id: updated.id,
             locationName: updated.locationName,
