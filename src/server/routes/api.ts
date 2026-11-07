@@ -378,7 +378,7 @@ apiRouter.get('/admin/site-data', requireAuth, async (req: AuthenticatedRequest,
   try {
     const data = await postgresStore.getFullAdminSiteData();
     const user = req.user as any;
-    if (user?.role === 'admin' && Array.isArray(user.permissions)) {
+    if (user?.role !== 'super_admin' && Array.isArray(user.permissions)) {
       const allowed = new Set(user.permissions);
       res.json({
         ...data,
