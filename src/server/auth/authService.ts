@@ -239,7 +239,29 @@ export class AuthService {
   }
 
   static async verifyPassword(password: string, storedHash: string): Promise<boolean> {
-    if (!storedHash.startsWith('scrypt
+    const delimiter = String.fromCharCode(36);
+    if (!storedHash.startsWith('scrypt' + delimiter)) {
+      try { return await bcrypt.compare(password, storedHash); } catch { return false; }
+    }
+    try {
+      const [, nValue, rValue, pValue, saltValue, keyValue] = storedHash.split(delimiter);
+      const N = Number(nValue), r = Number(rValue), p = Number(pValue);
+      if (!Number.isInteger(N) || N < 16384 || N > 131072 || !Number.isInteger(r) || r < 1 || r > 16 || !Number.isInteger(p) || p < 1 || p > 4) return false;
+      const salt = Buffer.from(saltValue, 'base64');
+      const expected = Buffer.from(keyValue, 'base64');
+      if (salt.length < 16 || expected.length !== 64) return false;
+      const actual = await deriveScryptKey(password, salt, expected.length, { N, r, p, maxmem: 128 * 1024 * 1024 });
+      return timingSafeEqual(actual, expected);
+    } catch {
+      return false;
+    }
+  }
+
+  static async hashPassword(password: string): Promise<string> {
+    const salt = randomBytes(16);
+    const derivedKey = await deriveScryptKey(password, salt, 64, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+    return ['scrypt', 32768, 8, 1, salt.toString('base64'), derivedKey.toString('base64')].join(String.fromCharCode(36));
+  }
 }
 )) {
       try { return await bcrypt.compare(password, storedHash); } catch { return false; }
