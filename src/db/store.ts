@@ -417,7 +417,7 @@ export class PostgresStore {
   private isDbOnline = isPostgresConfigured;
   private cachedPublicData: PublicSiteData | null = null;
   private cachedTimestamp: number = 0;
-  private readonly CACHE_TTL_MS = 30 * 1000; // 30 seconds
+  private readonly CACHE_TTL_MS = 1000; // Keep cross-instance public content freshness within one second.
 
   private memorySiteSettings: SiteSettings = { ...initialSiteSettings };
   private memoryAboutContent: AboutContent = { ...initialAboutContent };
