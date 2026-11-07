@@ -141,7 +141,7 @@ const handleInquirySubmission = async (req: Request, res: Response) => {
     });
 
     // Record in user activity logs
-    await postgresStore.recordActivity({
+    void postgresStore.recordActivity({
       type: 'contact_inquiry',
       title: `Project Inquiry: ${newInquiry.name}`,
       description: `Visitor submitted lead for '${newInquiry.service}'. Preferred contact: ${newInquiry.preferredContact.toUpperCase()} (${newInquiry.phone || newInquiry.email}).`,
@@ -157,7 +157,7 @@ const handleInquirySubmission = async (req: Request, res: Response) => {
         service: newInquiry.service,
         preferredContact: newInquiry.preferredContact,
       },
-    });
+    }).catch(() => {});
 
     recentInquiryIps.set(ip, now);
 
@@ -204,14 +204,14 @@ const handleTestimonialSubmission = async (req: Request, res: Response) => {
         (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
         req.ip ||
         '127.0.0.1';
-      await postgresStore.recordActivity({
+      void postgresStore.recordActivity({
         type: 'data_update',
         title: 'New Client Testimonial Submitted',
         description: `Client testimonial submitted by "${clientName}" (${clientCompany || 'Client'}). Awaiting administrative approval.`,
         severity: 'info',
         ip: clientIp,
         path: '/admin/testimonials',
-      });
+      }).catch(() => {});
     } catch {
       // ignore
     }
