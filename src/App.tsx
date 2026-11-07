@@ -42,6 +42,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminDashboardView } from './components/admin/AdminDashboardView';
 import { AdminHomepageView } from './components/admin/AdminHomepageView';
 import { AdminAboutView } from './components/admin/AdminAboutView';
+import { AdminFoundersView } from './components/admin/AdminFoundersView';
 import { AdminServicesView } from './components/admin/AdminServicesView';
 import { AdminWebProjectsView } from './components/admin/AdminWebProjectsView';
 import { AdminTestimonialsView } from './components/admin/AdminTestimonialsView';
@@ -146,6 +147,7 @@ const AdminRouteWrapper: React.FC<{
       {adminTab === 'security' && <AdminSecurityActivityView />}
       {adminTab === 'homepage' && <AdminHomepageView settings={activeAdminData.settings} onRefresh={fetchAdminData} />}
       {adminTab === 'about' && <AdminAboutView about={activeAdminData.about} onRefresh={fetchAdminData} />}
+      {adminTab === 'founders' && <AdminFoundersView founders={activeAdminData.founders || []} onRefresh={fetchAdminData} />}
       {adminTab === 'services' && <AdminServicesView services={activeAdminData.services} onRefresh={fetchAdminData} />}
       {adminTab === 'web-projects' && <AdminWebProjectsView projects={activeAdminData.webProjects} onRefresh={fetchAdminData} />}
       {adminTab === 'testimonials' && <AdminTestimonialsView testimonials={activeAdminData.testimonials} onRefresh={fetchAdminData} />}
