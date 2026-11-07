@@ -3,6 +3,7 @@ import multer from 'multer';
 import { postgresStore } from '../../db/store.ts';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.ts';
 import { AuthService } from '../auth/authService.ts';
+import { pool } from '../../db/index.ts';
 
 export const apiRouter = Router();
 
