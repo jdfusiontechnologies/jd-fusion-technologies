@@ -95,6 +95,12 @@ export const api = {
 
   getMe: () => request<{ user: any }>('/auth/me'),
 
+  listAdminUsers: () => request<any[]>('/admin/users'),
+  createAdminUser: (data: { email: string; name: string; role: 'super_admin' | 'admin' | 'user'; permissions: string[]; temporaryPassword: string }) =>
+    request<{ user: any }>('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateAdminUser: (id: string, data: { role: 'super_admin' | 'admin' | 'user'; permissions: string[]; isActive: boolean }) =>
+    request<{ user: any }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   // Admin Dashboard
   getAdminSiteData: () => request<any>('/admin/site-data'),
   getDashboardStats: () => request<AdminDashboardStats>('/admin/dashboard'),
