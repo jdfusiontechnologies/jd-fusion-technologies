@@ -22,17 +22,18 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
   else if (typeof req.query.token === 'string') token = req.query.token.trim();
   if (!token) return res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
 
-  // Preserve Firebase authentication for existing installations.
   try {
     const decodedFirebaseToken = await adminAuth.verifyIdToken(token);
     req.user = decodedFirebaseToken;
-    if (decodedFirebaseToken.uid && decodedFirebaseToken.email) {\n      getOrCreateUser(decodedFirebaseToken.uid, decodedFirebaseToken.email, (decodedFirebaseToken as any).name).catch((err) => {\n        console.warn('[Auth] Non-blocking Firebase user sync failed:', err?.message || err);\n      });\n    }\n    return next();
+    if (decodedFirebaseToken.uid && decodedFirebaseToken.email) {
+      getOrCreateUser(decodedFirebaseToken.uid, decodedFirebaseToken.email, (decodedFirebaseToken as any).name).catch((err) => {
+        console.warn('[Auth] Non-blocking Firebase user sync failed:', err?.message || err);
+      });
+    }
+    return next();
   } catch {
     const decodedJwt = AuthService.verifyToken(token);
     if (!decodedJwt) return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
-
-    // Resolve database accounts on every request so deactivation and permission changes
-    // take effect immediately, without waiting for a JWT to expire.
     if (decodedJwt.id !== 'admin-env') {
       try {
         const account = await AuthService.getAccountSession(decodedJwt.id);
@@ -60,8 +61,8 @@ const routeModule = (path: string): string | null => {
   if (path.includes('/media')) return 'media';
   if (path.includes('/seo')) return 'seo';
   if (path.includes('/settings') || path.includes('/backup') || path.includes('/reset-seed')) return 'settings';
+  if (path.includes('/site-data')) return 'site-data';
   if (path.includes('/dashboard')) return 'dashboard';
-  if (path.includes('/site-data')) return 'dashboard';
   return 'security';
 };
 
@@ -69,13 +70,13 @@ export const requireAdminPermission = (req: AuthenticatedRequest, res: Response,
   const user = req.user as any;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   if (user.role === 'super_admin' || user.id === 'admin-env') return next();
-
-  // Legacy Firebase admins retain their existing access. Explicit database accounts
-  // always carry a permissions array and are restricted to that allow-list.
   if (!Array.isArray(user.permissions)) return next();
 
   const module = routeModule(req.originalUrl.split('?')[0]);
   if (module === null) return next();
+  if (user.mustChangePassword) return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });
+  // The site-data response is filtered by permissions in the route handler.
+  if (module === 'site-data') return next();
   if (user.role === 'admin' && user.permissions.includes(module)) return next();
   return res.status(403).json({ error: 'You do not have permission to access this administration module.' });
 };
