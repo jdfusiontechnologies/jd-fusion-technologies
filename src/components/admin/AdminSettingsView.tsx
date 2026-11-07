@@ -59,15 +59,17 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
       return;
     }
 
-    if (newPassword.length < 8) {
-      setFeedback({ type: 'error', message: 'New password must be at least 8 characters long.' });
+    if (newPassword.length < 12) {
+      setFeedback({ type: 'error', message: 'New password must be at least 12 characters long.' });
       return;
     }
 
     setIsChangingPassword(true);
     try {
       const res = await api.changePassword({ currentPassword, newPassword });
-      setFeedback({ type: 'success', message: res.message || 'Password changed successfully!' });
+      const refreshed = await api.getMe();
+      if (refreshed.user) updateUser(refreshed.user);
+      setFeedback({ type: 'success', message: 'Password changed successfully. Your assigned modules are now available.' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
