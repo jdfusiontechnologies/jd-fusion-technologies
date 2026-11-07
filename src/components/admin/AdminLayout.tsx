@@ -69,7 +69,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'settings', label: 'System & Backup', icon: Settings },
   ];
 
-  const permissionTabs: Record<string, string> = { inquiries: 'inquiries', services: 'services', testimonials: 'testimonials', about: 'about', media: 'media', settings: 'settings', seo: 'seo', 'web-projects': 'web-projects' };\n  const visibleNavItems = admin?.role === 'super_admin' || admin?.id === 'admin-env'\n    ? navItems\n    : navItems.filter((item) => item.id === 'dashboard' ? false : Boolean(admin?.permissions?.includes(permissionTabs[item.id])));\n  const navForCurrentSession = admin?.mustChangePassword ? navItems.filter((item) => item.id === 'settings') : visibleNavItems;\n\n  const handleTabClick = (tabId: string) => {
+  const permissionTabs: Record<string, string> = { inquiries: 'inquiries', services: 'services', testimonials: 'testimonials', about: 'about', media: 'media', settings: 'settings', seo: 'seo', 'web-projects': 'web-projects' };
+  const visibleNavItems = admin?.role === 'super_admin' || admin?.id === 'admin-env'
+    ? navItems
+    : navItems.filter((item) => item.id === 'dashboard' ? false : Boolean(admin?.permissions?.includes(permissionTabs[item.id])));
+  const navForCurrentSession = admin?.mustChangePassword ? navItems.filter((item) => item.id === 'settings') : visibleNavItems;
+
+  const handleTabClick = (tabId: string) => {
     onSelectTab(tabId);
     setIsMobileSidebarOpen(false);
   };
