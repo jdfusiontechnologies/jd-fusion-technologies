@@ -70,7 +70,10 @@ export const requireAdminPermission = (req: AuthenticatedRequest, res: Response,
   const user = req.user as any;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const requestPath = req.originalUrl.split('?')[0];
-  if (user.mustChangePassword && !requestPath.includes('/change-password') && !requestPath.includes('/profile')) {\n    return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });\n  }\n  if (user.role === 'super_admin' || user.id === 'admin-env') return next();
+  if (user.mustChangePassword && !requestPath.includes('/change-password') && !requestPath.includes('/profile')) {
+    return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });
+  }
+  if (user.role === 'super_admin' || user.id === 'admin-env') return next();
   if (!Array.isArray(user.permissions)) return next();
 
   const module = routeModule(req.originalUrl.split('?')[0]);
