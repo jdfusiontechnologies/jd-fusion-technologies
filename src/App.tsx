@@ -318,7 +318,7 @@ const MainAppContent: React.FC = () => {
       }
     };
 
-    const intervalId = window.setInterval(refreshVisiblePage, 3000);
+    const intervalId = window.setInterval(refreshVisiblePage, 1000);
     window.addEventListener('focus', refreshVisiblePage);
     document.addEventListener('visibilitychange', refreshVisiblePage);
 
@@ -334,6 +334,52 @@ const MainAppContent: React.FC = () => {
       fetchAdminData();
     }
   }, [isAuthenticated, fetchAdminData]);
+
+  // Keep incoming client requests and testimonial submissions current in the admin panel.
+  // This lightweight poll avoids reloading the entire CMS or toggling the page loading state.
+  useEffect(() => {
+    if (!isAuthenticated || !isAdminRoute) return;
+
+    let isActive = true;
+    let refreshInFlight = false;
+
+    const refreshIncomingRequests = async () => {
+      if (refreshInFlight || document.visibilityState !== 'visible') return;
+      refreshInFlight = true;
+      try {
+        const [latestInquiries, latestTestimonials] = await Promise.all([
+          api.getAdminInquiries(),
+          api.getAdminTestimonials(),
+        ]);
+        if (!isActive) return;
+
+        const safeInquiries = Array.isArray(latestInquiries) ? latestInquiries : [];
+        const safeTestimonials = Array.isArray(latestTestimonials) ? latestTestimonials : [];
+        setInquiries(safeInquiries);
+        setAdminData((current) => current ? { ...current, testimonials: safeTestimonials } : current);
+        setStats((current) => current ? {
+          ...current,
+          newInquiries: safeInquiries.filter((item) => item.status === 'new').length,
+          totalInquiries: safeInquiries.length,
+          recentInquiries: safeInquiries.slice(0, 5),
+        } : current);
+      } catch {
+        // Keep the last successful admin data visible during temporary network interruptions.
+      } finally {
+        refreshInFlight = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => { void refreshIncomingRequests(); }, 1000);
+    window.addEventListener('focus', refreshIncomingRequests);
+    void refreshIncomingRequests();
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshIncomingRequests);
+    };
+  }, [isAuthenticated, isAdminRoute]);
 
   // Record page visit for visitor analytics when browsing public routes
   useEffect(() => {
