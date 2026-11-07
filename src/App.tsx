@@ -307,6 +307,28 @@ const MainAppContent: React.FC = () => {
     fetchPublicData();
   }, [fetchPublicData]);
 
+  // Keep already-open public pages in sync with content saved in the admin CMS.
+  // Refresh only while visible to avoid unnecessary background traffic.
+  useEffect(() => {
+    if (isAdminRoute) return;
+
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchPublicData();
+      }
+    };
+
+    const intervalId = window.setInterval(refreshVisiblePage, 3000);
+    window.addEventListener('focus', refreshVisiblePage);
+    document.addEventListener('visibilitychange', refreshVisiblePage);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshVisiblePage);
+      document.removeEventListener('visibilitychange', refreshVisiblePage);
+    };
+  }, [fetchPublicData, isAdminRoute]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchAdminData();
