@@ -374,9 +374,28 @@ apiRouter.get('/auth/me', requireAuth, (req: AuthenticatedRequest, res: Response
 // 3. ADMIN MANAGEMENT ROUTES (PostgreSQL)
 // ==========================================
 
-apiRouter.get('/admin/site-data', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
+apiRouter.get('/admin/site-data', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = await postgresStore.getFullAdminSiteData();
+    const user = req.user as any;
+    if (user?.role === 'admin' && Array.isArray(user.permissions)) {
+      const allowed = new Set(user.permissions);
+      res.json({
+        ...data,
+        settings: allowed.has('homepage') ? data.settings : null,
+        about: allowed.has('about') ? data.about : null,
+        services: allowed.has('services') ? data.services : [],
+        webProjects: allowed.has('web-projects') ? data.webProjects : [],
+        graphicProjects: allowed.has('web-projects') ? data.graphicProjects : [],
+        testimonials: allowed.has('testimonials') ? data.testimonials : [],
+        founders: [],
+        contact: null,
+        location: null,
+        socials: [],
+        seo: allowed.has('seo') ? data.seo : null,
+      });
+      return;
+    }
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
