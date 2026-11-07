@@ -2210,6 +2210,7 @@ export class PostgresStore {
   }
 
   public async getActivityLogs(limit: number = 100): Promise<ActivityLog[]> {
+    await this.requireDatabase();
     try {
       const rows = await db
         .select()
@@ -2233,7 +2234,7 @@ export class PostgresStore {
         }));
       }
     } catch (err) {
-      console.warn('[PostgresStore] getActivityLogs DB query failed, using in-memory:', err);
+      throw new Error('Activity log retrieval failed; results may be incomplete.', { cause: err });
     }
 
     return this.memoryActivityLogs.slice(0, limit);
@@ -2274,7 +2275,8 @@ export class PostgresStore {
   }
 
   // --- Persistent Visitor & Traffic Analytics Engine ---
-  public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{ success: boolean; totalToday: number }> {
+  public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{
+    await this.requireDatabase(); success: boolean; totalToday: number }> {
     const sanitizedIp = (ip || '').split(',')[0].trim() || '127.0.0.1';
     const visitedPath = (path || '/').slice(0, 2048);
     const agent = (userAgent || 'Standard Web Browser').slice(0, 1024);
@@ -2299,6 +2301,7 @@ export class PostgresStore {
   }
 
   public async getVisitorStats(): Promise<VisitorStats> {
+    await this.requireDatabase();
     const [daily, weekly, monthly, yearly, totals] = await Promise.all([
       pool.query(`SELECT date_key,total_visits,unique_visitors FROM visitor_daily_rollups WHERE date_key >= TO_CHAR(CURRENT_DATE - INTERVAL '13 days','YYYY-MM-DD') ORDER BY date_key`),
       pool.query(`SELECT TO_CHAR(DATE_TRUNC('week',visited_at),'YYYY-MM-DD') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '8 weeks' GROUP BY DATE_TRUNC('week',visited_at) ORDER BY DATE_TRUNC('week',visited_at)`),
