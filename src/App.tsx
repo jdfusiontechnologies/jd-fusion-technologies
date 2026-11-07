@@ -78,17 +78,37 @@ const AdminRouteWrapper: React.FC<{
   fetchAdminData,
   onInquiryStatusChange,
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, admin } = useAuth();
   const navigate = useNavigate();
-  const [adminTab, setAdminTab] = useState<string>('dashboard');
+  const permissionToTab: Record<string, string> = {
+    inquiries: 'inquiries', services: 'services', testimonials: 'testimonials',
+    about: 'about', media: 'media', settings: 'settings', seo: 'seo', 'web-projects': 'web-projects',
+  };
+  const firstAllowedTab = admin?.mustChangePassword
+    ? 'settings'
+    : admin?.role === 'super_admin' || admin?.id === 'admin-env'
+      ? 'dashboard'
+      : permissionToTab[admin?.permissions?.[0] || ''] || 'settings';
+  const [adminTab, setAdminTab] = useState<string>(firstAllowedTab);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const hash = (window.location.hash || '').replace('#', '').toLowerCase();
-    if (hash.startsWith('admin/')) {
-      const tab = hash.replace('admin/', '').split('/')[0];
-      if (tab) setAdminTab(tab);
-    }
-  }, []);
+    const requestedTab = hash.startsWith('admin/') ? hash.replace('admin/', '').split('/')[0] : '';
+    const isSuperAdmin = admin?.role === 'super_admin' || admin?.id === 'admin-env';
+    const allowed = admin?.mustChangePassword
+      ? ['settings']
+      : isSuperAdmin
+        ? null
+        : (admin?.permissions || []).map((permission) => permissionToTab[permission]).filter(Boolean);
+    const nextTab = requestedTab && (!allowed || allowed.includes(requestedTab))
+      ? requestedTab
+      : (allowed ? (allowed[0] || 'settings') : 'dashboard');
+    setAdminTab(nextTab);
+    if (requestedTab !== nextTab) window.location.hash = `admin/${nextTab}`;
+  }, [isAuthenticated, admin?.id, admin?.role, admin?.mustChangePassword, admin?.permissions?.join(',')]);
+
+
 
   if (!isAuthenticated) {
     return (
