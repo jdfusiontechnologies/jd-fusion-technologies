@@ -1,0 +1,276 @@
+// Prisma Schema for JD Fusion Technologies Enterprise Platform & CMS
+// Database Provider: PostgreSQL (Neon, Supabase, Vercel Postgres, Cloud SQL)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Admin Users & Credentials
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String    @default("JD Fusion Administrator")
+  passwordHash String
+  role         String    @default("admin")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  @@map("admin_users")
+}
+
+// 2. Global Site & Brand Settings
+model SiteSettings {
+  id               String   @id @default("default")
+  siteName         String   @default("JD Fusion Technologies")
+  brandName        String   @default("JD Fusion Technologies")
+  tagline          String   @default("Where Ideas Become Innovation.")
+  logoUrl          String   @default("/logo.svg")
+  iconUrl          String   @default("/logo-icon.svg")
+  heroHeadline     String   @default("Building Digital Experiences. Creating Powerful Systems.")
+  heroSubheadline  String   @default("Engineering-first technology solutions. We build scalable corporate websites, mission-critical systems, dependable IT support networks, and strategic IT solutions tailored for modern organizations.")
+  heroBadgeText    String   @default("Where Ideas Become Innovation.")
+  primaryCtaText   String   @default("Explore Our Services")
+  secondaryCtaText String   @default("Contact Us")
+  updatedAt        DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// 3. About & Mission Statement
+model AboutContent {
+  id          String   @id @default("default")
+  title       String   @default("Where Ideas Become Innovation")
+  intro       String   @default("JD Fusion Technologies is an engineering-driven technology company specialising primarily in Website Development and Systems Development, reinforced by dependable IT Support and strategic IT Solutions.")
+  bio         String   @default("Founded to deliver uncompromising technical rigor and purposeful digital design, JD Fusion Technologies engineers mission-critical software, enterprise management platforms, and robust digital infrastructure for ambitious businesses and institutions.")
+  mission     String   @default("To build scalable, resilient, and intuitive technology solutions that empower enterprises to operate with speed, agility, and absolute reliability.")
+  vision      String   @default("To be the most trusted, transformative technology partner recognized for engineering excellence and genuine client success.")
+  approach    String   @default("We reject generic templates and brittle shortcuts. Every system, website, and network architecture is engineered with clean code, modern standards, and direct founder accountability.")
+  highlights  String[] @default([
+    "Modern TypeScript, React 19, and robust relational backbones",
+    "Custom business ERPs, HMS, SMS, and operational systems",
+    "Structured network cabling, managed servers, and hardware diagnostics",
+    "Zero-trust cybersecurity, NVMe cloud hosting, and automation"
+  ])
+  updatedAt   DateTime @updatedAt
+
+  @@map("about_content")
+}
+
+// 4. Technology Services & Offerings
+model Service {
+  id               String   @id @default(cuid())
+  title            String
+  category         String   // 'website-development' | 'systems-development' | 'it-solutions' | 'it-support' | custom
+  iconName         String   @default("Globe")
+  shortDescription String
+  fullDescription  String
+  features         String[]
+  displayOrder     Int      @default(0)
+  isPublished      Boolean  @default(true)
+  isFeatured       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("services")
+}
+
+// 5. Engineering Projects & Systems Portfolio
+model WebProject {
+  id               String   @id @default(cuid())
+  title            String
+  category         String   // 'Website Development' | 'Systems Development' | 'IT Solutions' | custom
+  description      String
+  mainImage        String
+  additionalImages String[] @default([])
+  technologies     String[]
+  projectUrl       String?  // Live demo URL
+  githubUrl        String?  // Nullable
+  displayOrder     Int      @default(0)
+  isFeatured       Boolean  @default(false)
+  isPublished      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("web_projects")
+}
+
+// 6. Client Testimonials & Endorsements
+model Testimonial {
+  id            String   @id @default(cuid())
+  clientName    String
+  clientCompany String
+  clientRole    String
+  message       String
+  clientImage   String?
+  rating        Int      @default(5)
+  displayOrder  Int      @default(0)
+  isFeatured    Boolean  @default(true)
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("testimonials")
+}
+
+// 7. Client Inquiries & Project Requests
+model Inquiry {
+  id               String   @id @default(cuid())
+  name             String
+  email            String
+  phone            String
+  service          String
+  description      String
+  preferredContact String   @default("whatsapp") // 'whatsapp' | 'email' | 'phone'
+  status           String   @default("new")      // 'new' | 'read' | 'archived'
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("inquiries")
+}
+
+// 8. Contact Channels & Communication Settings
+model ContactSettings {
+  id            String   @id @default("default")
+  email         String   @default("info@jdfusiontech.com")
+  phone         String   @default("+254 700 000 000 / +254 711 000 000")
+  whatsapp      String   @default("+254 700 000 000")
+  description   String   @default("Ready to start your next project or have technical inquiries about our services? Reach out directly to us.")
+  businessHours String   @default("Mon – Sat: 8:00 AM – 6:00 PM (EAT)")
+  updatedAt     DateTime @updatedAt
+
+  @@map("contact_settings")
+}
+
+// 9. Physical HQ Location & Map Coordinates
+model LocationSettings {
+  id           String   @id @default("default")
+  locationName String   @default("JD Fusion Technologies HQ")
+  address      String   @default("Nairobi, Kenya")
+  mapLink      String   @default("https://maps.google.com/?q=Nairobi+Kenya")
+  coordinates  String   @default("-1.286389, 36.817223")
+  description  String   @default("Headquartered in Nairobi, Kenya, delivering bespoke technology solutions across East Africa and worldwide.")
+  updatedAt    DateTime @updatedAt
+
+  @@map("location_settings")
+}
+
+// 10. Social Media Channels
+model SocialLink {
+  id           String   @id @default(cuid())
+  platform     String   // 'whatsapp' | 'linkedin' | 'facebook' | 'twitter' | 'github' | 'instagram' | custom
+  platformName String
+  url          String
+  icon         String   @default("Globe")
+  displayOrder Int      @default(0)
+  isPublished  Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+
+  @@map("social_links")
+}
+
+// 11. Founders & Engineering Leadership
+model Founder {
+  id           String   @id @default(cuid())
+  name         String
+  role         String   // Founder, Co-Founder
+  bio          String
+  imageUrl     String
+  linkedInUrl  String?
+  twitterUrl   String?
+  githubUrl    String?
+  email        String?
+  specialties  String[]
+  quote        String?
+  displayOrder Int      @default(0)
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("founders")
+}
+
+// 12. Media Library Metadata
+model MediaFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  provider     String   @default("local") // 'local' | 'postgres' | 's3'
+  createdAt    DateTime @default(now())
+
+  @@map("media_files")
+}
+
+// 13. Direct Database Binary Blobs (For storage without external S3)
+model MediaBlob {
+  id        String   @id
+  data      String   // Base64 file payload
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  @@map("media_blobs")
+}
+
+// 14. SEO & Search Engine Structured Data
+model SEOSettings {
+  id              String   @id @default("default")
+  siteTitle       String   @default("JD Fusion Technologies — Where Ideas Become Innovation")
+  metaDescription String   @default("Enterprise Website Development, Systems Development, and Strategic IT Solutions. Where Ideas Become Innovation.")
+  ogImageUrl      String   @default("/og-image.jpg")
+  keywords        String   @default("JD Fusion Technologies, Website Development, Systems Development, IT Support, IT Solutions, Software Engineering, Nairobi Kenya")
+  canonicalUrl    String?
+  robotsDirective String   @default("index, follow")
+  updatedAt       DateTime @updatedAt
+
+  @@map("seo_settings")
+}
+
+// 15. Activity & Security Audit Logs (User Actions, WhatsApp Clicks, Calls, Threat Defense)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  type        String   // 'user_contact_whatsapp' | 'user_contact_call' | 'user_contact_email' | 'inquiry_submission' | 'hack_attempt' | 'admin_login'
+  title       String
+  description String
+  severity    String   // 'info' | 'warning' | 'danger'
+  ip          String
+  userAgent   String?
+  location    String?
+  path        String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+// 16. Real-Time Visitor Telemetry Hits
+model VisitorVisit {
+  id         Int      @id @default(autoincrement())
+  ip         String
+  path       String   @default("/")
+  userAgent  String?
+  referrer   String?
+  deviceType String?  @default("desktop")
+  visitedAt  DateTime @default(now())
+
+  @@map("visitor_visits")
+}
+
+// 17. Precomputed Daily Traffic Metrics Rollup
+model VisitorDailyRollup {
+  id             Int      @id @default(autoincrement())
+  dateKey        String   @unique // Format: YYYY-MM-DD
+  totalVisits    Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  topPath        String?  @default("/")
+  updatedAt      DateTime @default(now())
+
+  @@map("visitor_daily_rollups")
+}

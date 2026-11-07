@@ -1,0 +1,331 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --primary: #155EEF;
+    --primary-hover: #124ec4;
+    --accent: #FF914D;
+    --accent-hover: #f07e36;
+    --dark: #000000;
+    --background: #FFFFFF;
+    --text: #09090B;
+    --card: #FFFFFF;
+    --card-border: #E2E8F0;
+    --muted: #64748B;
+    color-scheme: light;
+  }
+
+  .dark {
+    --primary: #155EEF;
+    --primary-hover: #3577f8;
+    --accent: #FF914D;
+    --accent-hover: #ffa56b;
+    --dark: #000000;
+    --background: #000000;
+    --text: #FFFFFF;
+    --card: #0A0A0A;
+    --card-border: #1E293B;
+    --muted: #94A3B8;
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--card-border);
+  }
+
+  html {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3B82F633;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #F9731699;
+}
+
+/* Minimal Grid Backgrounds */
+.bg-ambient-grid {
+  background-image: 
+    linear-gradient(to right, rgba(37, 99, 235, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.dark .bg-ambient-grid {
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(249, 115, 22, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.bg-ambient-dots {
+  background-image: radial-gradient(rgba(37, 99, 235, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .bg-ambient-dots {
+  background-image: radial-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Radial Vignette Masks for subtle edge fades */
+.mask-radial-fade {
+  mask-image: radial-gradient(ellipse 80% 65% at 50% 50%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 65% at 50% 50%, black 40%, transparent 100%);
+}
+
+.mask-top-fade {
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* Subtle Ambient Glows */
+.ambient-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.4s ease;
+}
+
+.dark .ambient-glow {
+  opacity: 0.35;
+}
+
+/* Gradient typography */
+.text-gradient {
+  background: linear-gradient(135deg, #155EEF 0%, #3577f8 45%, #FF914D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #155EEF 0%, #538bf9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-orange {
+  background: linear-gradient(135deg, #FF914D 0%, #ffa56b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-subtle {
+  background: linear-gradient(135deg, #155EEF 0%, #FF914D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Brand glows */
+.border-brand-glow {
+  box-shadow: 0 0 30px -8px rgba(21, 94, 239, 0.25);
+}
+
+.dark .border-brand-glow {
+  box-shadow: 0 0 40px -8px rgba(21, 94, 239, 0.3), 0 0 20px -6px rgba(255, 145, 77, 0.2);
+}
+
+/* Premium Card Hover Effect */
+.card-hover-effect {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px -12px rgba(37, 99, 235, 0.15),
+              0 4px 12px -2px rgba(249, 115, 22, 0.08);
+}
+
+.dark .card-hover-effect:hover {
+  box-shadow: 0 20px 40px -15px rgba(37, 99, 235, 0.2),
+              0 4px 20px -2px rgba(249, 115, 22, 0.15);
+}
+
+/* Smooth Fade & Slide Scroll Animations */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Accessible reduced motion override */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .card-hover-effect:hover {
+    transform: none !important;
+  }
+  .animate-marquee-rtl,
+  .animate-slogan-ticker {
+    animation: none !important;
+    transform: none !important;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Moving Right-to-Left Infinite Animations */
+@keyframes marquee-rtl {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-rtl {
+  display: flex;
+  width: max-content;
+  animation: marquee-rtl 38s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-rtl:hover {
+  animation-play-state: paused;
+}
+
+.animate-slogan-ticker {
+  display: flex;
+  width: max-content;
+  animation: marquee-rtl 26s linear infinite;
+  will-change: transform;
+}
+
+.animate-slogan-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Premium Flowing Shimmer & Floating Waves for Hero Headline Words */
+@keyframes headline-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes headline-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 16px rgba(21, 94, 239, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 32px rgba(255, 145, 77, 0.45));
+  }
+}
+
+@keyframes headline-float-1 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes headline-float-2 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes headline-float-3 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-slogan-part-1 {
+  background: linear-gradient(
+    110deg,
+    #09090b 0%,
+    #155EEF 30%,
+    #09090b 60%,
+    #155EEF 90%,
+    #09090b 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: headline-flow 7s linear infinite;
+  display: inline-block;
+  will-change: background-position;
+}
+
+.animate-slogan-part-2 {
+  background: linear-gradient(
+    110deg,
+    #155EEF 0%,
+    #3577f8 25%,
+    #FF914D 50%,
+    #ff7a29 75%,
+    #155EEF 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: headline-flow 5s linear infinite, headline-glow 4s ease-in-out infinite;
+  display: inline-block;
+  will-change: background-position, filter;
+}
