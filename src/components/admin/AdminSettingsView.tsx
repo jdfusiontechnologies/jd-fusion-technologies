@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { AdminUsersView } from './AdminUsersView';
 import {
   User,
   Lock,
@@ -145,6 +146,12 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
         </p>
       </div>
 
+      {admin?.mustChangePassword && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs text-amber-900 dark:text-amber-200">
+          <strong>Action required:</strong> This is a temporary password. Change it now before using other administration modules.
+        </div>
+      )}
+
       {feedback && (
         <div
           className={`p-4 rounded-xl text-xs flex items-center gap-2 ${
@@ -266,6 +273,8 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
           </div>
         </form>
       </div>
+
+      {(admin?.role === 'super_admin' || admin?.id === 'admin-env') && <AdminUsersView />}
 
       {/* Database Backup & Restore */}
       <div className="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
