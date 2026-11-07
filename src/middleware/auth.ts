@@ -8,8 +8,6 @@ export interface AuthenticatedRequest extends Request {
   user?: DecodedIdToken | { id: string; email: string; role: string };
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'jd-fusion-tech-secret-jwt-key-development-2026';
-
 export const requireAuth = async (
   req: AuthenticatedRequest,
   res: Response,

@@ -1,5 +1,6 @@
 import express from 'express';
 import { apiRouter } from '../src/server/routes/api';
+import { pool, isPostgresConfigured } from '../src/db/index.ts';
 
 const app = express();
 
@@ -18,12 +19,17 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'healthy',
-    runtime: 'Vercel Serverless Function',
-    timestamp: new Date().toISOString(),
-  });
+app.get('/api/health', async (_req, res) => {
+  try {
+    if (!isPostgresConfigured) {
+      return res.status(503).json({ status: 'degraded', database: 'not_configured', runtime: 'Vercel Serverless Function', timestamp: new Date().toISOString() });
+    }
+    await pool.query('SELECT 1');
+    return res.json({ status: 'healthy', database: 'connected', runtime: 'Vercel Serverless Function', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    console.error('[Health] Database connectivity check failed:', error?.message || error);
+    return res.status(503).json({ status: 'degraded', database: 'unavailable', runtime: 'Vercel Serverless Function', timestamp: new Date().toISOString() });
+  }
 });
 
 // Mount API routes

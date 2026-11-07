@@ -1,92 +1,68 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { timingSafeEqual } from 'node:crypto';
 import { AdminUser } from '../../types';
 import { postgresStore } from '../../db/store.ts';
+import { pool } from '../../db/index.ts';
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'jd-fusion-tech-secure-jwt-secret-key-2026';
 const TOKEN_EXPIRY = '7d';
 
-const DEFAULT_ADMIN_IDENTIFIERS = [
-  'joshuamwenda',
-  'joshuamwenda36@gmail.com',
-  'joshuamwenda2001@gmail.com',
-  'admin@jdfusiontech.com',
-  'admin@jdfusiontech.co.ke',
-  (process.env.ADMIN_EMAIL || '').toLowerCase().trim(),
-].filter(Boolean);
-
-const DEFAULT_ADMIN_PASSWORDS = [
-  '9311@Josh',
-  'Admin@JDFusion2026!',
-  'JDFusionAdmin2026!',
-  process.env.ADMIN_PASSWORD,
-].filter(Boolean) as string[];
-
-// Dynamic custom admin credentials (for runtime password / profile change)
-let currentAdminProfile = {
-  name: 'JD Fusion Administrator',
-  email: 'joshuamwenda36@gmail.com',
-};
-const customPasswords = new Set<string>();
-
-// In-memory rate limiting map for login attempts (IP -> { count, lockedUntil })
-interface LoginAttempt {
-  attempts: number;
-  lastAttempt: number;
-  lockedUntil?: number;
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 bytes.');
+  }
+  return secret;
 }
 
-const loginAttempts = new Map<string, LoginAttempt>();
+function constantTimeStringEqual(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual, 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  if (actualBuffer.length !== expectedBuffer.length) {
+    // Perform a comparison anyway so length mismatch does not create a fast path.
+    timingSafeEqual(actualBuffer, actualBuffer);
+    return false;
+  }
+  return timingSafeEqual(actualBuffer, expectedBuffer);
+}
 
 export class AuthService {
-  static isRateLimited(ip: string): { limited: boolean; retryAfterSeconds?: number } {
-    const now = Date.now();
-    const record = loginAttempts.get(ip);
+  static async isRateLimited(ip: string): Promise<{ limited: boolean; retryAfterSeconds?: number }> {
+    try {
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS attempts, MIN(created_at) AS oldest_attempt
+         FROM activity_logs
+         WHERE ip = $1
+           AND type IN ('login_failed', 'hack_attempt')
+           AND created_at >= NOW() - INTERVAL '15 minutes'`,
+        [ip]
+      );
+      const attempts = Number(result.rows[0]?.attempts || 0);
+      if (attempts < 5) return { limited: false };
 
-    if (!record) return { limited: false };
-
-    if (record.lockedUntil && record.lockedUntil > now) {
-      return {
-        limited: true,
-        retryAfterSeconds: Math.ceil((record.lockedUntil - now) / 1000),
-      };
-    }
-
-    if (now - record.lastAttempt > 15 * 60 * 1000) {
-      loginAttempts.delete(ip);
-      return { limited: false };
-    }
-
-    return { limited: false };
-  }
-
-  static recordFailedAttempt(ip: string): number {
-    const now = Date.now();
-    const record = loginAttempts.get(ip) || { attempts: 0, lastAttempt: now };
-    record.attempts += 1;
-    record.lastAttempt = now;
-
-    if (record.attempts >= 5) {
-      record.lockedUntil = now + 5 * 60 * 1000;
-    }
-
-    loginAttempts.set(ip, record);
-    return record.attempts;
-  }
-
-  static clearAttempts(ip: string): void {
-    loginAttempts.delete(ip);
-  }
-
-  static updatePassword(newPassword: string): void {
-    if (newPassword && newPassword.length >= 6) {
-      customPasswords.add(newPassword);
+      const oldestAttempt = result.rows[0]?.oldest_attempt
+        ? new Date(result.rows[0].oldest_attempt).getTime()
+        : Date.now();
+      const retryAfterSeconds = Math.max(1, Math.ceil((oldestAttempt + 15 * 60 * 1000 - Date.now()) / 1000));
+      return { limited: true, retryAfterSeconds };
+    } catch (error) {
+      // Fail closed: a database outage must not disable login throttling.
+      console.error('[Auth] Persistent login rate-limit check failed:', error);
+      return { limited: true, retryAfterSeconds: 60 };
     }
   }
 
-  static updateProfile(name?: string, email?: string): void {
-    if (name) currentAdminProfile.name = name;
-    if (email) currentAdminProfile.email = email.toLowerCase().trim();
+  /**
+   * Credentials are deliberately managed through deployment secrets.
+   * A password/profile change cannot be persisted by mutating a serverless
+   * process; the admin must update Vercel environment variables and redeploy.
+   */
+  static updatePassword(_newPassword: string): never {
+    throw new Error('Administrator credentials are managed in deployment environment variables. Update ADMIN_PASSWORD or ADMIN_PASSWORD_HASH in Vercel, then redeploy.');
+  }
+
+  static updateProfile(_name?: string, _email?: string): never {
+    throw new Error('Administrator profile is managed in deployment environment variables. Update ADMIN_NAME and ADMIN_EMAIL in Vercel, then redeploy.');
   }
 
   static async authenticateAdmin(
@@ -95,75 +71,76 @@ export class AuthService {
     clientIp: string,
     userAgent?: string
   ): Promise<{ success: boolean; token?: string; user?: AdminUser; error?: string }> {
-    const rateCheck = this.isRateLimited(clientIp);
+    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminUsername = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
+    const adminName = (process.env.ADMIN_NAME || 'JD Fusion Administrator').trim();
+    const configuredPassword = process.env.ADMIN_PASSWORD || '';
+    const configuredPasswordHash = process.env.ADMIN_PASSWORD_HASH || '';
+
+    if (!adminEmail || (!configuredPassword && !configuredPasswordHash)) {
+      return { success: false, error: 'Admin authentication is not configured. Set ADMIN_EMAIL and ADMIN_PASSWORD (or ADMIN_PASSWORD_HASH) in Vercel.' };
+    }
+
+    let jwtSecret: string;
+    try {
+      jwtSecret = getJwtSecret();
+    } catch (error: any) {
+      return { success: false, error: error.message || 'JWT_SECRET is not configured.' };
+    }
+
+    const rateCheck = await this.isRateLimited(clientIp);
     if (rateCheck.limited) {
-      // Record threat log for locked out brute-force attacks
       await postgresStore.recordActivity({
         type: 'hack_attempt',
         title: 'Brute-Force Attack Blocked (IP Locked)',
-        description: `Blocked automated login barrage from IP ${clientIp} targeting '${identifier}'.`,
+        description: `Blocked repeated login attempts from IP ${clientIp} targeting '${identifier}'.`,
         severity: 'danger',
         ip: clientIp,
         userAgent,
         path: '/api/auth/login',
         metadata: { identifier, retryAfterSeconds: rateCheck.retryAfterSeconds },
       });
-
-      return {
-        success: false,
-        error: `Too many failed attempts. Access temporarily restricted. Retry in ${rateCheck.retryAfterSeconds} seconds.`,
-      };
+      return { success: false, error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.` };
     }
 
     const cleanId = (identifier || '').trim().toLowerCase();
+    const validIdentifier = cleanId === adminEmail || (Boolean(adminUsername) && cleanId === adminUsername);
+    let validPassword = false;
+    if (configuredPasswordHash) {
+      try {
+        validPassword = await bcrypt.compare(passwordPlain, configuredPasswordHash);
+      } catch {
+        validPassword = false;
+      }
+    } else {
+      validPassword = constantTimeStringEqual(passwordPlain, configuredPassword);
+    }
 
-    // Check valid admin identifiers (username or email)
-    const isValidIdentifier =
-      DEFAULT_ADMIN_IDENTIFIERS.includes(cleanId) ||
-      cleanId === currentAdminProfile.email.toLowerCase() ||
-      cleanId === 'joshuamwenda';
-
-    // Check valid passwords
-    const isValidPassword =
-      DEFAULT_ADMIN_PASSWORDS.includes(passwordPlain) ||
-      customPasswords.has(passwordPlain);
-
-    if (!isValidIdentifier || !isValidPassword) {
-      const attemptsCount = this.recordFailedAttempt(clientIp);
-      const isBruteForce = attemptsCount >= 3;
-
-      // Log failure in security audit
+    if (!validIdentifier || !validPassword) {
       await postgresStore.recordActivity({
-        type: isBruteForce ? 'hack_attempt' : 'login_failed',
-        title: isBruteForce
-          ? `Repeated Login Failure Alert (Attempt #${attemptsCount})`
-          : 'Failed Admin Login Attempt',
-        description: isBruteForce
-          ? `Suspicious repetitive failed login attempts using identifier '${cleanId}' from IP ${clientIp}.`
-          : `Failed login attempt with identifier '${cleanId}'.`,
-        severity: isBruteForce ? 'danger' : 'warning',
+        type: 'login_failed',
+        title: 'Failed Admin Login Attempt',
+        description: `Failed admin login attempt for identifier '${cleanId}' from IP ${clientIp}.`,
+        severity: 'warning',
         ip: clientIp,
         userAgent,
         path: '/api/auth/login',
-        metadata: { attemptedIdentifier: cleanId, attemptsCount },
+        metadata: { attemptedIdentifier: cleanId },
       });
-
       return { success: false, error: 'Invalid username/email or password.' };
     }
 
-    this.clearAttempts(clientIp);
-
+    const now = new Date().toISOString();
     const safeUser: AdminUser = {
-      id: 'admin-joshua',
-      email: cleanId.includes('@') ? cleanId : currentAdminProfile.email,
-      name: currentAdminProfile.name,
+      id: 'admin-env',
+      email: adminEmail,
+      name: adminName,
       role: 'super_admin',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now,
     };
 
-    // Record successful login in security audit
     await postgresStore.recordActivity({
       type: 'login_success',
       title: 'Admin Login Successful',
@@ -176,25 +153,16 @@ export class AuthService {
     });
 
     const token = jwt.sign(
-      {
-        id: safeUser.id,
-        email: safeUser.email,
-        role: safeUser.role,
-      },
-      JWT_SECRET,
+      { id: safeUser.id, email: safeUser.email, role: safeUser.role },
+      jwtSecret,
       { expiresIn: TOKEN_EXPIRY }
     );
-
     return { success: true, token, user: safeUser };
   }
 
   static verifyToken(token: string): { id: string; email: string; role: string } | null {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as {
-        id: string;
-        email: string;
-        role: string;
-      };
+      const decoded = jwt.verify(token, getJwtSecret()) as { id: string; email: string; role: string };
       return decoded;
     } catch {
       return null;
@@ -202,7 +170,7 @@ export class AuthService {
   }
 
   static async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     return bcrypt.hash(password, salt);
   }
 }

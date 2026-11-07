@@ -503,233 +503,62 @@ export class PostgresStore {
     };
   }
 
-  public async ensureTablesExist(): Promise<void> {
-    if (!isPostgresConfigured || !this.isDbOnline) {
-      return;
+  private async requireDatabase(): Promise<void> {
+    await this.initSeedIfNeeded();
+    if (!this.isDbOnline) {
+      throw new Error('The database is unavailable. No persistent change was confirmed; please try again.');
     }
-    try {
-      // First verify if tables already exist in public schema
-      const checkRes = await pool.query(`
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_name = 'site_settings' 
-        LIMIT 1;
-      `);
-      if (checkRes.rows && checkRes.rows.length > 0) {
-        // Database tables already provisioned and ready
-        return;
+  }
+
+  public async ensureTablesExist(): Promise<void> {
+    if (!isPostgresConfigured) throw new Error('DATABASE_URL or POSTGRES_URL is required for persistent database storage.');
+
+    const expectedColumns: Record<string, string[]> = {
+      users: ['id','uid','email','name','role','created_at','updated_at','last_login_at'],
+      site_settings: ['id','site_name','brand_name','tagline','logo_url','icon_url','hero_headline','hero_subheadline','hero_badge_text','primary_cta_text','secondary_cta_text','updated_at'],
+      about_content: ['id','title','intro','bio','mission','vision','approach','highlights','updated_at'],
+      services: ['id','title','category','icon_name','short_description','full_description','features','display_order','is_published','is_featured','created_at','updated_at'],
+      web_projects: ['id','title','category','description','main_image','additional_images','technologies','project_url','github_url','display_order','is_featured','is_published','created_at','updated_at'],
+      graphic_projects: ['id','title','category','description','main_image','gallery_images','tags','display_order','is_featured','is_published','created_at','updated_at'],
+      testimonials: ['id','client_name','client_company','client_role','message','client_image','rating','display_order','is_featured','is_published','created_at','updated_at'],
+      founders: ['id','name','role','bio','image_url','linkedin_url','twitter_url','github_url','email','specialties','quote','display_order','is_published','created_at','updated_at'],
+      inquiries: ['id','name','email','phone','service','description','preferred_contact','status','created_at','updated_at'],
+      contact_settings: ['id','email','phone','whatsapp','description','business_hours','updated_at'],
+      location_settings: ['id','location_name','address','map_link','coordinates','description','updated_at'],
+      social_links: ['id','platform','platform_name','url','icon','display_order','is_published','updated_at'],
+      media_files: ['id','filename','original_name','mime_type','size','url','provider','created_at'],
+      media_blobs: ['id','data','mime_type','created_at'],
+      seo_settings: ['id','site_title','meta_description','og_image_url','keywords','canonical_url','robots_directive','updated_at'],
+      activity_logs: ['id','type','title','description','severity','ip','user_agent','location','path','metadata','created_at'],
+      visitor_visits: ['id','ip','path','user_agent','referrer','device_type','visited_at'],
+      visitor_daily_rollups: ['id','date_key','total_visits','unique_visitors','top_path','updated_at'],
+    };
+
+    const tableNames = Object.keys(expectedColumns);
+    const result = await pool.query(
+      `SELECT table_name, column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+      [tableNames]
+    );
+    const actual = new Map<string, Set<string>>();
+    for (const row of result.rows as Array<{ table_name: string; column_name: string }>) {
+      if (!actual.has(row.table_name)) actual.set(row.table_name, new Set());
+      actual.get(row.table_name)!.add(row.column_name);
+    }
+
+    const problems: string[] = [];
+    for (const [table, columns] of Object.entries(expectedColumns)) {
+      const found = actual.get(table);
+      if (!found) {
+        problems.push(`missing table ${table}`);
+        continue;
       }
-
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          uid TEXT NOT NULL UNIQUE,
-          email TEXT NOT NULL,
-          name TEXT NOT NULL DEFAULT 'Admin User',
-          role TEXT NOT NULL DEFAULT 'admin',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          last_login_at TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS site_settings (
-          id TEXT PRIMARY KEY,
-          site_name TEXT NOT NULL,
-          brand_name TEXT,
-          tagline TEXT NOT NULL,
-          logo_url TEXT NOT NULL,
-          icon_url TEXT NOT NULL,
-          hero_headline TEXT,
-          hero_subheadline TEXT NOT NULL,
-          hero_badge_text TEXT NOT NULL,
-          primary_cta_text TEXT NOT NULL,
-          secondary_cta_text TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS about_content (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          intro TEXT NOT NULL,
-          bio TEXT NOT NULL,
-          mission TEXT NOT NULL,
-          vision TEXT NOT NULL,
-          approach TEXT NOT NULL,
-          highlights JSONB NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS services (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          icon_name TEXT NOT NULL,
-          short_description TEXT NOT NULL,
-          full_description TEXT NOT NULL,
-          features JSONB NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS web_projects (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          description TEXT NOT NULL,
-          main_image TEXT NOT NULL,
-          additional_images JSONB NOT NULL,
-          technologies JSONB NOT NULL,
-          project_url TEXT,
-          github_url TEXT,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS graphic_projects (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          description TEXT NOT NULL,
-          main_image TEXT NOT NULL,
-          gallery_images JSONB NOT NULL,
-          tags JSONB NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS testimonials (
-          id TEXT PRIMARY KEY,
-          client_name TEXT NOT NULL,
-          client_company TEXT NOT NULL,
-          client_role TEXT NOT NULL,
-          message TEXT NOT NULL,
-          client_image TEXT,
-          rating INTEGER NOT NULL DEFAULT 5,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT true,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS founders (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          role TEXT NOT NULL,
-          bio TEXT NOT NULL,
-          image_url TEXT NOT NULL,
-          linkedin_url TEXT,
-          twitter_url TEXT,
-          github_url TEXT,
-          email TEXT,
-          specialties JSONB NOT NULL DEFAULT '[]'::jsonb,
-          quote TEXT,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS inquiries (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          email TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          service TEXT NOT NULL,
-          description TEXT NOT NULL,
-          preferred_contact TEXT NOT NULL DEFAULT 'whatsapp',
-          status TEXT NOT NULL DEFAULT 'new',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS contact_settings (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          whatsapp TEXT NOT NULL,
-          description TEXT NOT NULL,
-          business_hours TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS location_settings (
-          id TEXT PRIMARY KEY,
-          location_name TEXT NOT NULL,
-          address TEXT NOT NULL,
-          map_link TEXT NOT NULL,
-          coordinates TEXT NOT NULL,
-          description TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS social_links (
-          id TEXT PRIMARY KEY,
-          platform TEXT NOT NULL,
-          platform_name TEXT NOT NULL,
-          url TEXT NOT NULL,
-          icon TEXT NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS media_files (
-          id TEXT PRIMARY KEY,
-          filename TEXT NOT NULL,
-          original_name TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          size INTEGER NOT NULL,
-          url TEXT NOT NULL,
-          provider TEXT NOT NULL DEFAULT 'postgres',
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS media_blobs (
-          id TEXT PRIMARY KEY,
-          data TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS seo_settings (
-          id TEXT PRIMARY KEY,
-          site_title TEXT,
-          meta_description TEXT NOT NULL,
-          og_image_url TEXT,
-          keywords TEXT NOT NULL,
-          canonical_url TEXT,
-          robots_directive TEXT,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS activity_logs (
-          id TEXT PRIMARY KEY,
-          type TEXT NOT NULL,
-          title TEXT NOT NULL,
-          description TEXT NOT NULL,
-          severity TEXT NOT NULL,
-          ip TEXT NOT NULL,
-          user_agent TEXT,
-          location TEXT,
-          path TEXT,
-          metadata JSONB,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-    } catch (tableErr: any) {
-      if (tableErr?.code === '42501' || tableErr?.message?.includes('already exists')) {
-        return;
-      }
-      console.warn('[PostgresStore] Schema verify note (resilient fallback active):', tableErr?.message || tableErr);
+      const missingColumns = columns.filter((column) => !found.has(column));
+      if (missingColumns.length) problems.push(`${table}: missing columns ${missingColumns.join(', ')}`);
+    }
+    if (problems.length) {
+      throw new Error(`Database schema is incomplete or incompatible: ${problems.join('; ')}. No automatic schema changes were made.`);
     }
   }
 
@@ -752,8 +581,8 @@ export class PostgresStore {
       this.isInitialized = true;
     } catch (err: any) {
       this.isDbOnline = false;
-      this.isInitialized = true;
-      console.warn('[PostgresStore] Database connection note (active in resilient fallback mode):', err?.message || err);
+      this.isInitialized = false;
+      console.warn('[PostgresStore] Database connection failed; a later request will retry:', err?.message || err);
     }
   }
 
@@ -850,7 +679,7 @@ export class PostgresStore {
 
       console.log('[PostgresStore] Seeding complete in PostgreSQL!');
     } catch (error: any) {
-      console.warn('[PostgresStore] Database seeding note (using in-memory fallback):', error?.message || error);
+      throw new Error('Database initialization seeding failed; startup cannot be marked healthy.', { cause: error });
     }
   }
 
@@ -1311,54 +1140,26 @@ export class PostgresStore {
 
   public async addInquiry(data: Omit<Inquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<Inquiry> {
     await this.initSeedIfNeeded();
+    if (!this.isDbOnline) throw new Error('The database is currently unavailable. Your inquiry was not accepted; please try again shortly.');
     const id = 'inq-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-    const inqItem: Inquiry = {
-      id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      service: data.service,
-      description: data.description,
-      preferredContact: data.preferredContact,
-      status: 'new',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const [inserted] = await db.insert(inquiries).values({
+      id, name: data.name, email: data.email, phone: data.phone, service: data.service,
+      description: data.description, preferredContact: data.preferredContact, status: 'new',
+    }).returning();
+    if (!inserted) throw new Error('The inquiry could not be confirmed as saved.');
+    const saved: Inquiry = {
+      ...inserted,
+      preferredContact: inserted.preferredContact as any,
+      status: inserted.status as any,
+      createdAt: inserted.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: inserted.updatedAt?.toISOString() || new Date().toISOString(),
     };
-    this.memoryInquiries.unshift(inqItem);
-
-    if (this.isDbOnline) {
-      try {
-        const [inserted] = await db
-          .insert(inquiries)
-          .values({
-            id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            service: data.service,
-            description: data.description,
-            preferredContact: data.preferredContact,
-            status: 'new',
-          })
-          .returning();
-
-        if (inserted) {
-          return {
-            ...inserted,
-            preferredContact: inserted.preferredContact as any,
-            status: inserted.status as any,
-            createdAt: inserted.createdAt?.toISOString() || inqItem.createdAt,
-            updatedAt: inserted.updatedAt?.toISOString() || inqItem.updatedAt,
-          };
-        }
-      } catch (err: any) {
-        console.warn('[PostgresStore] addInquiry DB note (saved in memory):', err?.message || err);
-      }
-    }
-    return inqItem;
+    this.memoryInquiries.unshift(saved);
+    return saved;
   }
 
   public async updateInquiryStatus(id: string, status: 'new' | 'read' | 'archived'): Promise<Inquiry | null> {
+    await this.requireDatabase();
     const memItem = this.memoryInquiries.find((i) => i.id === id);
     if (memItem) {
       memItem.status = status;
@@ -1383,13 +1184,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateInquiryStatus DB note (updated in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return memItem || null;
   }
 
   public async deleteInquiry(id: string): Promise<boolean> {
+    await this.requireDatabase();
     const initialLen = this.memoryInquiries.length;
     this.memoryInquiries = this.memoryInquiries.filter((i) => i.id !== id);
 
@@ -1398,7 +1200,7 @@ export class PostgresStore {
         const res = await db.delete(inquiries).where(eq(inquiries.id, id)).returning();
         return res.length > 0 || this.memoryInquiries.length < initialLen;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteInquiry DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return this.memoryInquiries.length < initialLen;
@@ -1406,6 +1208,7 @@ export class PostgresStore {
 
   // --- Site Settings Update ---
   public async updateSiteSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySiteSettings = {
       ...this.memorySiteSettings,
@@ -1457,7 +1260,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateSiteSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memorySiteSettings };
@@ -1465,6 +1268,7 @@ export class PostgresStore {
 
   // --- About Update ---
   public async updateAboutContent(patch: Partial<AboutContent>): Promise<AboutContent> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryAboutContent = {
       ...this.memoryAboutContent,
@@ -1510,7 +1314,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateAboutContent DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryAboutContent };
@@ -1518,6 +1322,7 @@ export class PostgresStore {
 
   // --- Contact Update ---
   public async updateContactSettings(patch: Partial<ContactSettings>): Promise<ContactSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryContactSettings = {
       ...this.memoryContactSettings,
@@ -1559,7 +1364,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateContactSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryContactSettings };
@@ -1567,6 +1372,7 @@ export class PostgresStore {
 
   // --- Location Update ---
   public async updateLocationSettings(patch: Partial<LocationSettings>): Promise<LocationSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryLocationSettings = {
       ...this.memoryLocationSettings,
@@ -1608,7 +1414,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateLocationSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryLocationSettings };
@@ -1616,6 +1422,7 @@ export class PostgresStore {
 
   // --- SEO Update ---
   public async updateSEOSettings(patch: Partial<SEOSettings>): Promise<SEOSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySEOSettings = {
       ...this.memorySEOSettings,
@@ -1659,7 +1466,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateSEOSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memorySEOSettings };
@@ -1684,6 +1491,7 @@ export class PostgresStore {
   }
 
   public async saveService(item: Partial<ServiceItem> & { title: string }): Promise<ServiceItem> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'serv-' + Date.now();
     const serviceItem: ServiceItem = {
@@ -1751,13 +1559,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveService DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return serviceItem;
   }
 
   public async deleteService(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryServices = this.memoryServices.filter(s => s.id !== id);
     if (this.isDbOnline) {
@@ -1765,7 +1574,7 @@ export class PostgresStore {
         const res = await db.delete(services).where(eq(services.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteService DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1790,6 +1599,7 @@ export class PostgresStore {
   }
 
   public async saveWebProject(item: Partial<WebProject> & { title: string }): Promise<WebProject> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'web-' + Date.now();
     const webItem: WebProject = {
@@ -1863,13 +1673,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveWebProject DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return webItem;
   }
 
   public async deleteWebProject(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryWebProjects = this.memoryWebProjects.filter(p => p.id !== id);
     if (this.isDbOnline) {
@@ -1877,7 +1688,7 @@ export class PostgresStore {
         const res = await db.delete(webProjects).where(eq(webProjects.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteWebProject DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1902,6 +1713,7 @@ export class PostgresStore {
   }
 
   public async saveGraphicProject(item: Partial<GraphicProject> & { title: string }): Promise<GraphicProject> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'graph-' + Date.now();
     const graphItem: GraphicProject = {
@@ -1969,13 +1781,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveGraphicProject DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return graphItem;
   }
 
   public async deleteGraphicProject(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryGraphicProjects = this.memoryGraphicProjects.filter(g => g.id !== id);
     if (this.isDbOnline) {
@@ -1983,7 +1796,7 @@ export class PostgresStore {
         const res = await db.delete(graphicProjects).where(eq(graphicProjects.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteGraphicProject DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -2006,6 +1819,7 @@ export class PostgresStore {
   }
 
   public async saveTestimonial(item: Partial<Testimonial> & { clientName: string }): Promise<Testimonial> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'test-' + Date.now();
     const testItem: Testimonial = {
@@ -2071,13 +1885,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveTestimonial DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return testItem;
   }
 
   public async deleteTestimonial(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryTestimonials = this.memoryTestimonials.filter(t => t.id !== id);
     if (this.isDbOnline) {
@@ -2085,7 +1900,7 @@ export class PostgresStore {
         const res = await db.delete(testimonials).where(eq(testimonials.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteTestimonial DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -2109,6 +1924,7 @@ export class PostgresStore {
   }
 
   public async saveFounder(item: Partial<Founder> & { name: string; role: string; bio: string; imageUrl: string }): Promise<Founder> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || 'founder-' + Date.now();
     const founderItem: Founder = {
@@ -2185,13 +2001,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveFounder DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return founderItem;
   }
 
   public async deleteFounder(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryFounders = this.memoryFounders.filter(f => f.id !== id);
     if (this.isDbOnline) {
@@ -2199,7 +2016,7 @@ export class PostgresStore {
         const res = await db.delete(founders).where(eq(founders.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteFounder DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -2223,6 +2040,7 @@ export class PostgresStore {
   }
 
   public async saveSocialLink(item: Partial<SocialLink> & { platform: string; url: string }): Promise<SocialLink> {
+    await this.requireDatabase();
     this.invalidateCache();
     const id = item.id || item.platform.toLowerCase();
     const socialItem: SocialLink = {
@@ -2278,13 +2096,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveSocialLink DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return socialItem;
   }
 
   public async deleteSocialLink(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySocialLinks = this.memorySocialLinks.filter(sl => sl.id !== id);
     if (this.isDbOnline) {
@@ -2292,7 +2111,7 @@ export class PostgresStore {
         const res = await db.delete(socialLinks).where(eq(socialLinks.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteSocialLink DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -2318,6 +2137,7 @@ export class PostgresStore {
     originalName: string,
     mimeType: string
   ): Promise<MediaItem> {
+    await this.requireDatabase();
     const id = 'media-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
     const filename = `${id}-${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const base64Data = fileBuffer.toString('base64');
@@ -2370,14 +2190,14 @@ export class PostgresStore {
   }
 
   public async deleteMedia(id: string): Promise<boolean> {
+    await this.requireDatabase();
     try {
       await db.delete(mediaBlobs).where(eq(mediaBlobs.id, id));
       const res = await db.delete(mediaFiles).where(eq(mediaFiles.id, id)).returning();
       return res.length > 0;
     } catch (err: any) {
-      console.warn('[PostgresStore] deleteMedia notice:', err?.message || err);
-      return false;
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+      }
   }
 
   // ==========================================
@@ -2387,6 +2207,7 @@ export class PostgresStore {
   public async recordActivity(
     data: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
   ): Promise<ActivityLog> {
+    await this.requireDatabase();
     const id = data.id || `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const timestamp = data.timestamp || new Date().toISOString();
 
@@ -2404,13 +2225,7 @@ export class PostgresStore {
       metadata: data.metadata,
     };
 
-    // Keep in-memory copy (limit to 500)
-    this.memoryActivityLogs.unshift(logEntry);
-    if (this.memoryActivityLogs.length > 500) {
-      this.memoryActivityLogs.pop();
-    }
-
-    // Persist to PostgreSQL
+    // Persist to PostgreSQL before reporting success or updating the local cache.
     try {
       await db.insert(activityLogs).values({
         id: logEntry.id,
@@ -2426,13 +2241,16 @@ export class PostgresStore {
         createdAt: new Date(timestamp),
       });
     } catch (dbErr) {
-      console.warn('[PostgresStore] Failed to insert activity log to DB (fallback to in-memory):', dbErr);
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: dbErr });
+      }
 
+    this.memoryActivityLogs.unshift(logEntry);
+    if (this.memoryActivityLogs.length > 500) this.memoryActivityLogs.pop();
     return logEntry;
   }
 
   public async getActivityLogs(limit: number = 100): Promise<ActivityLog[]> {
+    await this.requireDatabase();
     try {
       const rows = await db
         .select()
@@ -2456,18 +2274,19 @@ export class PostgresStore {
         }));
       }
     } catch (err) {
-      console.warn('[PostgresStore] getActivityLogs DB query failed, using in-memory:', err);
+      throw new Error('Activity log retrieval failed; results may be incomplete.', { cause: err });
     }
 
     return this.memoryActivityLogs.slice(0, limit);
   }
 
   public async clearActivityLogs(): Promise<void> {
+    await this.requireDatabase();
     try {
       await db.delete(activityLogs);
     } catch (err) {
-      console.warn('[PostgresStore] Failed to delete activity logs from DB:', err);
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+      }
     this.memoryActivityLogs = [];
   }
 
@@ -2495,142 +2314,68 @@ export class PostgresStore {
     };
   }
 
-  // --- Visitor & Traffic Analytics Engine ---
-  private visitorLog: Array<{ ip: string; path: string; userAgent?: string; timestamp: Date }> = [];
-  private liveVisitorCounts = {
-    todayExtra: 0,
-    weekExtra: 0,
-    monthExtra: 0,
-    yearExtra: 0,
-    uniqueIps: new Set<string>(),
-  };
-
+  // --- Persistent Visitor & Traffic Analytics Engine ---
   public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{ success: boolean; totalToday: number }> {
-    const sanitizedIp = ip.split(',')[0].trim() || '127.0.0.1';
-    const entry = {
-      ip: sanitizedIp,
-      path: path || '/',
-      userAgent: userAgent || 'Standard Web Browser',
-      timestamp: new Date(),
-    };
-
-    this.visitorLog.unshift(entry);
-    if (this.visitorLog.length > 1000) {
-      this.visitorLog.pop();
-    }
-
-    this.liveVisitorCounts.todayExtra += 1;
-    this.liveVisitorCounts.weekExtra += 1;
-    this.liveVisitorCounts.monthExtra += 1;
-    this.liveVisitorCounts.yearExtra += 1;
-    this.liveVisitorCounts.uniqueIps.add(sanitizedIp);
-
-    return {
-      success: true,
-      totalToday: 345 + this.liveVisitorCounts.todayExtra,
-    };
+    await this.requireDatabase();
+    const sanitizedIp = (ip || '').split(',')[0].trim() || '127.0.0.1';
+    const visitedPath = (path || '/').slice(0, 2048);
+    const agent = (userAgent || 'Standard Web Browser').slice(0, 1024);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`INSERT INTO visitor_visits (ip, path, user_agent, visited_at) VALUES ($1, $2, $3, NOW())`, [sanitizedIp, visitedPath, agent]);
+      await client.query(
+        `INSERT INTO visitor_daily_rollups (date_key, total_visits, unique_visitors, top_path, updated_at)
+         SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'), COUNT(*)::int, COUNT(DISTINCT ip)::int,
+           COALESCE((SELECT path FROM visitor_visits WHERE visited_at::date = CURRENT_DATE GROUP BY path ORDER BY COUNT(*) DESC LIMIT 1), '/'), NOW()
+         FROM visitor_visits WHERE visited_at::date = CURRENT_DATE
+         ON CONFLICT (date_key) DO UPDATE SET total_visits=EXCLUDED.total_visits, unique_visitors=EXCLUDED.unique_visitors, top_path=EXCLUDED.top_path, updated_at=NOW()`
+      );
+      const count = await client.query(`SELECT total_visits FROM visitor_daily_rollups WHERE date_key = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')`);
+      await client.query('COMMIT');
+      return { success: true, totalToday: Number(count.rows[0]?.total_visits || 0) };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
   }
 
   public async getVisitorStats(): Promise<VisitorStats> {
-    const now = new Date();
-    const liveExtraToday = this.liveVisitorCounts.todayExtra;
-    const liveExtraWeek = this.liveVisitorCounts.weekExtra;
-    const liveExtraMonth = this.liveVisitorCounts.monthExtra;
-    const liveExtraYear = this.liveVisitorCounts.yearExtra;
-    const liveUniques = this.liveVisitorCounts.uniqueIps.size;
-
-    // 1. Daily Breakdown (Last 14 days)
-    const dailyBreakdown: VisitorBreakdownItem[] = [];
-    const baseDailyCounts = [142, 168, 155, 189, 210, 194, 230, 215, 248, 260, 275, 290, 310, 345];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const isToday = i === 0;
-      const label = isToday ? 'Today' : `${monthNames[d.getMonth()]} ${d.getDate()}`;
-      const dateKey = d.toISOString().split('T')[0];
-      const baseVisits = baseDailyCounts[13 - i] || 150;
-      const visits = isToday ? baseVisits + liveExtraToday : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.76) + (isToday ? liveUniques : 0);
-
-      dailyBreakdown.push({
-        label,
-        dateKey,
-        visits,
-        uniqueVisitors,
-      });
+    await this.requireDatabase();
+    const [daily, weekly, monthly, yearly, totals] = await Promise.all([
+      pool.query(`SELECT date_key,total_visits,unique_visitors FROM visitor_daily_rollups WHERE date_key >= TO_CHAR(CURRENT_DATE - INTERVAL '13 days','YYYY-MM-DD') ORDER BY date_key`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('week',visited_at),'YYYY-MM-DD') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '8 weeks' GROUP BY DATE_TRUNC('week',visited_at) ORDER BY DATE_TRUNC('week',visited_at)`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('month',visited_at),'YYYY-MM') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '12 months' GROUP BY DATE_TRUNC('month',visited_at) ORDER BY DATE_TRUNC('month',visited_at)`),
+      pool.query(`SELECT EXTRACT(YEAR FROM visited_at)::int AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= DATE_TRUNC('year',NOW())-INTERVAL '3 years' GROUP BY EXTRACT(YEAR FROM visited_at) ORDER BY period`),
+      pool.query(`SELECT COUNT(*) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS today,COUNT(DISTINCT ip) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS unique_today,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS this_week,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS unique_week,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS this_month,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS unique_month,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS this_year,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS unique_year,COUNT(*)::int AS total FROM visitor_visits`),
+    ]);
+    const n=(v:unknown)=>Number(v||0);
+    const dailyMap=new Map(daily.rows.map((r:any)=>[r.date_key,r]));
+    const dailyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=13;offset>=0;offset--){
+      const d=new Date();d.setDate(d.getDate()-offset);const key=d.toISOString().slice(0,10);const row:any=dailyMap.get(key);
+      dailyBreakdown.push({label:offset===0?'Today':d.toLocaleDateString('en',{month:'short',day:'numeric'}),dateKey:key,visits:n(row?.total_visits),uniqueVisitors:n(row?.unique_visitors)});
     }
-
-    // 2. Weekly Breakdown (Last 8 weeks)
-    const weeklyBreakdown: VisitorBreakdownItem[] = [];
-    const baseWeeklyCounts = [1120, 1280, 1450, 1390, 1620, 1780, 1910, 2150];
-    for (let i = 7; i >= 0; i--) {
-      const isThisWeek = i === 0;
-      const label = isThisWeek ? 'This Week' : `Week -${i}`;
-      const baseVisits = baseWeeklyCounts[7 - i] || 1200;
-      const visits = isThisWeek ? baseVisits + liveExtraWeek : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.74) + (isThisWeek ? liveUniques : 0);
-
-      weeklyBreakdown.push({
-        label,
-        visits,
-        uniqueVisitors,
-      });
+    const weeklyMap=new Map(weekly.rows.map((r:any)=>[r.period,r]));
+    const weeklyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=7;offset>=0;offset--){
+      const d=new Date();d.setDate(d.getDate()-offset*7);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));
+      const key=d.toISOString().slice(0,10);const row:any=weeklyMap.get(key);
+      weeklyBreakdown.push({label:offset===0?'This Week':`Week -${offset}`,visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});
     }
-
-    // 3. Monthly Breakdown (Last 12 months)
-    const monthlyBreakdown: VisitorBreakdownItem[] = [];
-    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonthIdx = now.getMonth();
-    const baseMonthlyVisits = [4100, 4350, 4800, 5200, 5600, 5950, 6400, 6800, 7150, 7600, 8100, 8650];
-
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), currentMonthIdx - i, 1);
-      const isThisMonth = i === 0;
-      const label = `${monthLabels[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
-      const baseVisits = baseMonthlyVisits[11 - i] || 5000;
-      const visits = isThisMonth ? baseVisits + liveExtraMonth : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.72) + (isThisMonth ? liveUniques : 0);
-
-      monthlyBreakdown.push({
-        label,
-        dateKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        visits,
-        uniqueVisitors,
-      });
+    const monthlyMap=new Map(monthly.rows.map((r:any)=>[r.period,r]));
+    const monthlyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=11;offset>=0;offset--){
+      const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-offset);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;const row:any=monthlyMap.get(key);
+      monthlyBreakdown.push({label:d.toLocaleDateString('en',{month:'short',year:'2-digit'}),dateKey:key,visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});
     }
-
-    // 4. Yearly Breakdown (Past 4 years)
-    const currentYear = now.getFullYear();
-    const yearlyBreakdown: VisitorBreakdownItem[] = [
-      { label: `${currentYear - 3}`, visits: 24200, uniqueVisitors: 18100 },
-      { label: `${currentYear - 2}`, visits: 41800, uniqueVisitors: 31200 },
-      { label: `${currentYear - 1}`, visits: 68500, uniqueVisitors: 51800 },
-      { label: `${currentYear} (YTD)`, visits: 89400 + liveExtraYear, uniqueVisitors: 67200 + liveUniques },
-    ];
-
-    const todayVisits = dailyBreakdown[dailyBreakdown.length - 1]?.visits || 345;
-    const thisWeekVisits = weeklyBreakdown[weeklyBreakdown.length - 1]?.visits || 2150;
-    const thisMonthVisits = monthlyBreakdown[monthlyBreakdown.length - 1]?.visits || 8650;
-    const thisYearVisits = yearlyBreakdown[yearlyBreakdown.length - 1]?.visits || 89400;
-
-    return {
-      today: todayVisits,
-      thisWeek: thisWeekVisits,
-      thisMonth: thisMonthVisits,
-      thisYear: thisYearVisits,
-      totalAllTime: 223900 + liveExtraYear,
-      uniqueToday: Math.round(todayVisits * 0.76),
-      uniqueThisWeek: Math.round(thisWeekVisits * 0.74),
-      uniqueThisMonth: Math.round(thisMonthVisits * 0.72),
-      uniqueThisYear: Math.round(thisYearVisits * 0.75),
-      dailyBreakdown,
-      weeklyBreakdown,
-      monthlyBreakdown,
-      yearlyBreakdown,
-    };
+    const yearlyMap=new Map(yearly.rows.map((r:any)=>[String(r.period),r]));
+    const yearNow=new Date().getFullYear();const yearlyBreakdown:VisitorBreakdownItem[]=[];
+    for(let year=yearNow-3;year<=yearNow;year++){const row:any=yearlyMap.get(String(year));yearlyBreakdown.push({label:year===yearNow?`${year} (YTD)`:String(year),visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});}
+    const t=totals.rows[0]||{};
+    return {today:n(t.today),thisWeek:n(t.this_week),thisMonth:n(t.this_month),thisYear:n(t.this_year),totalAllTime:n(t.total),uniqueToday:n(t.unique_today),uniqueThisWeek:n(t.unique_week),uniqueThisMonth:n(t.unique_month),uniqueThisYear:n(t.unique_year),dailyBreakdown,weeklyBreakdown,monthlyBreakdown,yearlyBreakdown};
   }
+
 }
 
 export const postgresStore = PostgresStore.getInstance();

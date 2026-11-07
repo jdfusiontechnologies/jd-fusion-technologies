@@ -425,7 +425,7 @@ apiRouter.put('/admin/profile', requireAuth, async (req: AuthenticatedRequest, r
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(409).json({ error: err.message });
   }
 });
 
@@ -438,7 +438,7 @@ apiRouter.put('/admin/change-password', requireAuth, async (req: AuthenticatedRe
     AuthService.updatePassword(newPassword);
     res.json({ success: true, message: 'Password changed successfully!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(409).json({ error: err.message });
   }
 });
 
