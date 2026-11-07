@@ -439,16 +439,13 @@ apiRouter.put('/admin/profile', requireAuth, async (req: AuthenticatedRequest, r
   try {
     const { name, email } = req.body;
     const currentUser = req.user as any;
-    AuthService.updateProfile(name, email);
-    res.json({
-      success: true,
-      user: {
-        id: currentUser?.id || 'admin-1',
-        email: email || currentUser?.email || 'admin@jdfusiontech.com',
-        name: name || currentUser?.name || 'JD Fusion Administrator',
-        role: 'super_admin',
-      },
-    });
+    if (currentUser?.id === 'admin-env') AuthService.updateProfile(name, email);
+    const user = await AuthService.updateAccountProfile(
+      currentUser.id,
+      String(name || currentUser.name || ''),
+      String(email || currentUser.email || '')
+    );
+    res.json({ success: true, user });
   } catch (err: any) {
     res.status(409).json({ error: err.message });
   }
@@ -457,11 +454,13 @@ apiRouter.put('/admin/profile', requireAuth, async (req: AuthenticatedRequest, r
 apiRouter.put('/admin/change-password', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    if (!newPassword || newPassword.length < 12) {
+      return res.status(400).json({ error: 'New password must be at least 12 characters.' });
     }
-    AuthService.updatePassword(newPassword);
-    res.json({ success: true, message: 'Password changed successfully!' });
+    const currentUser = req.user as any;
+    if (currentUser?.id === 'admin-env') AuthService.updatePassword(newPassword);
+    await AuthService.updateAccountPassword(currentUser.id, String(currentPassword || ''), newPassword);
+    res.json({ success: true, message: 'Password changed successfully.' });
   } catch (err: any) {
     res.status(409).json({ error: err.message });
   }
