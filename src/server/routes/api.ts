@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { postgresStore } from '../../db/store.ts';
-import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.ts';
+import { requireAuth, requireAdminPermission, AuthenticatedRequest } from '../../middleware/auth.ts';
 import { AuthService } from '../auth/authService.ts';
+import { pool } from '../../db/index.ts';
 
 export const apiRouter = Router();
 
@@ -372,10 +373,111 @@ apiRouter.get('/auth/me', requireAuth, (req: AuthenticatedRequest, res: Response
 // ==========================================
 // 3. ADMIN MANAGEMENT ROUTES (PostgreSQL)
 // ==========================================
+// Every /admin API is authenticated and permission-checked server-side.
+apiRouter.use('/admin', requireAuth, requireAdminPermission);
 
-apiRouter.get('/admin/site-data', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
+const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if ((req.user as any)?.role !== 'super_admin' && (req.user as any)?.id !== 'admin-env') {
+    return res.status(403).json({ error: 'Only Super Admins can manage administrator accounts.' });
+  }
+  next();
+};
+
+const ADMIN_MODULES = ['inquiries', 'services', 'testimonials', 'about', 'media', 'settings', 'seo', 'web-projects'];
+
+apiRouter.get('/admin/users', requireAuth, requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, name, role, permissions, is_active, must_change_password, created_at, last_login_at FROM admin_accounts ORDER BY created_at ASC'
+    );
+    res.json(result.rows.map((row) => ({
+      id: row.id, email: row.email, name: row.name, role: row.role,
+      permissions: row.permissions || [], isActive: row.is_active,
+      mustChangePassword: row.must_change_password, createdAt: row.created_at, lastLoginAt: row.last_login_at,
+    })));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Could not load accounts.' });
+  }
+});
+
+apiRouter.post('/admin/users', requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { email, name, role, permissions, temporaryPassword } = req.body || {};
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanName = String(name || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || !cleanName) {
+      return res.status(400).json({ error: 'A valid email and name are required.' });
+    }
+    if (!['super_admin', 'admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid account role.' });
+    if (typeof temporaryPassword !== 'string' || temporaryPassword.length < 12) {
+      return res.status(400).json({ error: 'Temporary password must be at least 12 characters.' });
+    }
+    const safePermissions = role === 'admin' && Array.isArray(permissions)
+      ? [...new Set(permissions.filter((item: unknown) => typeof item === 'string' && ADMIN_MODULES.includes(item as string)))]
+      : [];
+    const passwordHash = await AuthService.hashPassword(temporaryPassword);
+    const result = await pool.query(
+      'INSERT INTO admin_accounts (email, name, password_hash, role, permissions, is_active, must_change_password, created_by) VALUES ($1, $2, $3, $4, $5::jsonb, true, true, $6) RETURNING id, email, name, role, permissions, is_active, must_change_password, created_at',
+      [cleanEmail, cleanName, passwordHash, role, JSON.stringify(safePermissions), (req.user as any)?.id === 'admin-env' ? null : (req.user as any)?.id]
+    );
+    const row = result.rows[0];
+    res.status(201).json({ user: {
+      id: row.id, email: row.email, name: row.name, role: row.role,
+      permissions: row.permissions || [], isActive: row.is_active,
+      mustChangePassword: row.must_change_password, createdAt: row.created_at,
+    } });
+  } catch (err: any) {
+    if (err.code === '23505') return res.status(409).json({ error: 'An account with that email already exists.' });
+    res.status(500).json({ error: err.message || 'Could not create account.' });
+  }
+});
+
+apiRouter.patch('/admin/users/:id', requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { role, permissions, isActive } = req.body || {};
+    if (!['super_admin', 'admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid account role.' });
+    if ((req.user as any)?.id === req.params.id) return res.status(400).json({ error: 'You cannot change your own role or deactivate your own account.' });
+    const safePermissions = role === 'admin' && Array.isArray(permissions)
+      ? [...new Set(permissions.filter((item: unknown) => typeof item === 'string' && ADMIN_MODULES.includes(item as string)))]
+      : [];
+    const result = await pool.query(
+      'UPDATE admin_accounts SET role = $1, permissions = $2::jsonb, is_active = $3, updated_at = NOW() WHERE id = $4 RETURNING id, email, name, role, permissions, is_active, must_change_password',
+      [role, JSON.stringify(safePermissions), Boolean(isActive), req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Account not found.' });
+    const row = result.rows[0];
+    res.json({ user: {
+      id: row.id, email: row.email, name: row.name, role: row.role,
+      permissions: row.permissions || [], isActive: row.is_active, mustChangePassword: row.must_change_password,
+    } });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Could not update account.' });
+  }
+});
+
+
+apiRouter.get('/admin/site-data', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = await postgresStore.getFullAdminSiteData();
+    const user = req.user as any;
+    if (user?.role !== 'super_admin' && Array.isArray(user.permissions)) {
+      const allowed = new Set(user.permissions);
+      res.json({
+        ...data,
+        settings: allowed.has('homepage') ? data.settings : null,
+        about: allowed.has('about') ? data.about : null,
+        services: allowed.has('services') ? data.services : [],
+        webProjects: allowed.has('web-projects') ? data.webProjects : [],
+        graphicProjects: allowed.has('web-projects') ? data.graphicProjects : [],
+        testimonials: allowed.has('testimonials') ? data.testimonials : [],
+        founders: [],
+        contact: null,
+        location: null,
+        socials: [],
+        seo: allowed.has('seo') ? data.seo : null,
+      });
+      return;
+    }
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -419,16 +521,13 @@ apiRouter.put('/admin/profile', requireAuth, async (req: AuthenticatedRequest, r
   try {
     const { name, email } = req.body;
     const currentUser = req.user as any;
-    AuthService.updateProfile(name, email);
-    res.json({
-      success: true,
-      user: {
-        id: currentUser?.id || 'admin-1',
-        email: email || currentUser?.email || 'admin@jdfusiontech.com',
-        name: name || currentUser?.name || 'JD Fusion Administrator',
-        role: 'super_admin',
-      },
-    });
+    if (currentUser?.id === 'admin-env') AuthService.updateProfile(name, email);
+    const user = await AuthService.updateAccountProfile(
+      currentUser.id,
+      String(name || currentUser.name || ''),
+      String(email || currentUser.email || '')
+    );
+    res.json({ success: true, user });
   } catch (err: any) {
     res.status(409).json({ error: err.message });
   }
@@ -437,11 +536,13 @@ apiRouter.put('/admin/profile', requireAuth, async (req: AuthenticatedRequest, r
 apiRouter.put('/admin/change-password', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    if (!newPassword || newPassword.length < 12) {
+      return res.status(400).json({ error: 'New password must be at least 12 characters.' });
     }
-    AuthService.updatePassword(newPassword);
-    res.json({ success: true, message: 'Password changed successfully!' });
+    const currentUser = req.user as any;
+    if (currentUser?.id === 'admin-env') AuthService.updatePassword(newPassword);
+    await AuthService.updateAccountPassword(currentUser.id, String(currentPassword || ''), newPassword);
+    res.json({ success: true, message: 'Password changed successfully.' });
   } catch (err: any) {
     res.status(409).json({ error: err.message });
   }

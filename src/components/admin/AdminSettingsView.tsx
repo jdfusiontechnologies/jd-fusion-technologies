@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { AdminUsersView } from './AdminUsersView';
 import {
   User,
   Lock,
@@ -58,15 +59,17 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
       return;
     }
 
-    if (newPassword.length < 8) {
-      setFeedback({ type: 'error', message: 'New password must be at least 8 characters long.' });
+    if (newPassword.length < 12) {
+      setFeedback({ type: 'error', message: 'New password must be at least 12 characters long.' });
       return;
     }
 
     setIsChangingPassword(true);
     try {
       const res = await api.changePassword({ currentPassword, newPassword });
-      setFeedback({ type: 'success', message: res.message || 'Password changed successfully!' });
+      const refreshed = await api.getMe();
+      if (refreshed.user) updateUser(refreshed.user);
+      setFeedback({ type: 'success', message: 'Password changed successfully. Your assigned modules are now available.' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -144,6 +147,12 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
           Manage administrator credentials, export JSON database snapshots, and maintain system integrity.
         </p>
       </div>
+
+      {admin?.mustChangePassword && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs text-amber-900 dark:text-amber-200">
+          <strong>Action required:</strong> This is a temporary password. Change it now before using other administration modules.
+        </div>
+      )}
 
       {feedback && (
         <div
@@ -266,6 +275,8 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ onRefreshA
           </div>
         </form>
       </div>
+
+      {(admin?.role === 'super_admin' || admin?.id === 'admin-env') && <AdminUsersView />}
 
       {/* Database Backup & Restore */}
       <div className="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
