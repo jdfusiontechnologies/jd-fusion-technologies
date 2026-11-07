@@ -3,16 +3,9 @@ import bcrypt from 'bcryptjs';
 import { timingSafeEqual } from 'node:crypto';
 import { AdminUser } from '../../types';
 import { postgresStore } from '../../db/store.ts';
+import { pool } from '../../db/index.ts';
 
 const TOKEN_EXPIRY = '7d';
-
-interface LoginAttempt {
-  attempts: number;
-  lastAttempt: number;
-  lockedUntil?: number;
-}
-
-const loginAttempts = new Map<string, LoginAttempt>();
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -34,32 +27,29 @@ function constantTimeStringEqual(actual: string, expected: string): boolean {
 }
 
 export class AuthService {
-  static isRateLimited(ip: string): { limited: boolean; retryAfterSeconds?: number } {
-    const now = Date.now();
-    const record = loginAttempts.get(ip);
-    if (!record) return { limited: false };
-    if (record.lockedUntil && record.lockedUntil > now) {
-      return { limited: true, retryAfterSeconds: Math.ceil((record.lockedUntil - now) / 1000) };
-    }
-    if (now - record.lastAttempt > 15 * 60 * 1000) {
-      loginAttempts.delete(ip);
-      return { limited: false };
-    }
-    return { limited: false };
-  }
+  static async isRateLimited(ip: string): Promise<{ limited: boolean; retryAfterSeconds?: number }> {
+    try {
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS attempts, MIN(created_at) AS oldest_attempt
+         FROM activity_logs
+         WHERE ip = $1
+           AND type IN ('login_failed', 'hack_attempt')
+           AND created_at >= NOW() - INTERVAL '15 minutes'`,
+        [ip]
+      );
+      const attempts = Number(result.rows[0]?.attempts || 0);
+      if (attempts < 5) return { limited: false };
 
-  static recordFailedAttempt(ip: string): number {
-    const now = Date.now();
-    const record = loginAttempts.get(ip) || { attempts: 0, lastAttempt: now };
-    record.attempts += 1;
-    record.lastAttempt = now;
-    if (record.attempts >= 5) record.lockedUntil = now + 5 * 60 * 1000;
-    loginAttempts.set(ip, record);
-    return record.attempts;
-  }
-
-  static clearAttempts(ip: string): void {
-    loginAttempts.delete(ip);
+      const oldestAttempt = result.rows[0]?.oldest_attempt
+        ? new Date(result.rows[0].oldest_attempt).getTime()
+        : Date.now();
+      const retryAfterSeconds = Math.max(1, Math.ceil((oldestAttempt + 15 * 60 * 1000 - Date.now()) / 1000));
+      return { limited: true, retryAfterSeconds };
+    } catch (error) {
+      // Fail closed: a database outage must not disable login throttling.
+      console.error('[Auth] Persistent login rate-limit check failed:', error);
+      return { limited: true, retryAfterSeconds: 60 };
+    }
   }
 
   /**
@@ -98,7 +88,7 @@ export class AuthService {
       return { success: false, error: error.message || 'JWT_SECRET is not configured.' };
     }
 
-    const rateCheck = this.isRateLimited(clientIp);
+    const rateCheck = await this.isRateLimited(clientIp);
     if (rateCheck.limited) {
       await postgresStore.recordActivity({
         type: 'hack_attempt',
@@ -127,21 +117,19 @@ export class AuthService {
     }
 
     if (!validIdentifier || !validPassword) {
-      const attemptsCount = this.recordFailedAttempt(clientIp);
       await postgresStore.recordActivity({
-        type: attemptsCount >= 3 ? 'hack_attempt' : 'login_failed',
-        title: attemptsCount >= 3 ? `Repeated Login Failure Alert (Attempt #${attemptsCount})` : 'Failed Admin Login Attempt',
+        type: 'login_failed',
+        title: 'Failed Admin Login Attempt',
         description: `Failed admin login attempt for identifier '${cleanId}' from IP ${clientIp}.`,
-        severity: attemptsCount >= 3 ? 'danger' : 'warning',
+        severity: 'warning',
         ip: clientIp,
         userAgent,
         path: '/api/auth/login',
-        metadata: { attemptedIdentifier: cleanId, attemptsCount },
+        metadata: { attemptedIdentifier: cleanId },
       });
       return { success: false, error: 'Invalid username/email or password.' };
     }
 
-    this.clearAttempts(clientIp);
     const now = new Date().toISOString();
     const safeUser: AdminUser = {
       id: 'admin-env',
