@@ -16,6 +16,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (req.user) return next();
   const authHeader = req.headers.authorization;
   let token = '';
   if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.split('Bearer ')[1].trim();
