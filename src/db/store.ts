@@ -503,6 +503,13 @@ export class PostgresStore {
     };
   }
 
+  private async requireDatabase(): Promise<void> {
+    await this.initSeedIfNeeded();
+    if (!this.isDbOnline) {
+      throw new Error('The database is unavailable. No persistent change was confirmed; please try again.');
+    }
+  }
+
   public async ensureTablesExist(): Promise<void> {
     if (!isPostgresConfigured) throw new Error('DATABASE_URL or POSTGRES_URL is required for persistent database storage.');
     const expectedTables = ['users','site_settings','about_content','services','web_projects','graphic_projects','testimonials','inquiries','contact_settings','location_settings','social_links','media_files','media_blobs','seo_settings','activity_logs','founders','visitor_visits','visitor_daily_rollups'];
@@ -1112,6 +1119,7 @@ export class PostgresStore {
   }
 
   public async updateInquiryStatus(id: string, status: 'new' | 'read' | 'archived'): Promise<Inquiry | null> {
+    await this.requireDatabase();
     const memItem = this.memoryInquiries.find((i) => i.id === id);
     if (memItem) {
       memItem.status = status;
@@ -1136,13 +1144,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateInquiryStatus DB note (updated in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return memItem || null;
   }
 
   public async deleteInquiry(id: string): Promise<boolean> {
+    await this.requireDatabase();
     const initialLen = this.memoryInquiries.length;
     this.memoryInquiries = this.memoryInquiries.filter((i) => i.id !== id);
 
@@ -1151,7 +1160,7 @@ export class PostgresStore {
         const res = await db.delete(inquiries).where(eq(inquiries.id, id)).returning();
         return res.length > 0 || this.memoryInquiries.length < initialLen;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteInquiry DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return this.memoryInquiries.length < initialLen;
@@ -1159,6 +1168,7 @@ export class PostgresStore {
 
   // --- Site Settings Update ---
   public async updateSiteSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySiteSettings = {
       ...this.memorySiteSettings,
@@ -1210,7 +1220,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateSiteSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memorySiteSettings };
@@ -1218,6 +1228,7 @@ export class PostgresStore {
 
   // --- About Update ---
   public async updateAboutContent(patch: Partial<AboutContent>): Promise<AboutContent> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryAboutContent = {
       ...this.memoryAboutContent,
@@ -1263,7 +1274,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateAboutContent DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryAboutContent };
@@ -1271,6 +1282,7 @@ export class PostgresStore {
 
   // --- Contact Update ---
   public async updateContactSettings(patch: Partial<ContactSettings>): Promise<ContactSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryContactSettings = {
       ...this.memoryContactSettings,
@@ -1312,7 +1324,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateContactSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryContactSettings };
@@ -1320,6 +1332,7 @@ export class PostgresStore {
 
   // --- Location Update ---
   public async updateLocationSettings(patch: Partial<LocationSettings>): Promise<LocationSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryLocationSettings = {
       ...this.memoryLocationSettings,
@@ -1361,7 +1374,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateLocationSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memoryLocationSettings };
@@ -1369,6 +1382,7 @@ export class PostgresStore {
 
   // --- SEO Update ---
   public async updateSEOSettings(patch: Partial<SEOSettings>): Promise<SEOSettings> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySEOSettings = {
       ...this.memorySEOSettings,
@@ -1412,7 +1426,7 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] updateSEOSettings DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return { ...this.memorySEOSettings };
@@ -1436,7 +1450,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveService(item: Partial<ServiceItem> & { title: string }): Promise<ServiceItem> {
+  public async saveService(item: Partial<ServiceItem> & {
+    await this.requireDatabase(); title: string }): Promise<ServiceItem> {
     this.invalidateCache();
     const id = item.id || 'serv-' + Date.now();
     const serviceItem: ServiceItem = {
@@ -1504,13 +1519,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveService DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return serviceItem;
   }
 
   public async deleteService(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryServices = this.memoryServices.filter(s => s.id !== id);
     if (this.isDbOnline) {
@@ -1518,7 +1534,7 @@ export class PostgresStore {
         const res = await db.delete(services).where(eq(services.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteService DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1542,7 +1558,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveWebProject(item: Partial<WebProject> & { title: string }): Promise<WebProject> {
+  public async saveWebProject(item: Partial<WebProject> & {
+    await this.requireDatabase(); title: string }): Promise<WebProject> {
     this.invalidateCache();
     const id = item.id || 'web-' + Date.now();
     const webItem: WebProject = {
@@ -1616,13 +1633,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveWebProject DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return webItem;
   }
 
   public async deleteWebProject(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryWebProjects = this.memoryWebProjects.filter(p => p.id !== id);
     if (this.isDbOnline) {
@@ -1630,7 +1648,7 @@ export class PostgresStore {
         const res = await db.delete(webProjects).where(eq(webProjects.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteWebProject DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1654,7 +1672,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveGraphicProject(item: Partial<GraphicProject> & { title: string }): Promise<GraphicProject> {
+  public async saveGraphicProject(item: Partial<GraphicProject> & {
+    await this.requireDatabase(); title: string }): Promise<GraphicProject> {
     this.invalidateCache();
     const id = item.id || 'graph-' + Date.now();
     const graphItem: GraphicProject = {
@@ -1722,13 +1741,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveGraphicProject DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return graphItem;
   }
 
   public async deleteGraphicProject(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryGraphicProjects = this.memoryGraphicProjects.filter(g => g.id !== id);
     if (this.isDbOnline) {
@@ -1736,7 +1756,7 @@ export class PostgresStore {
         const res = await db.delete(graphicProjects).where(eq(graphicProjects.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteGraphicProject DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1758,7 +1778,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveTestimonial(item: Partial<Testimonial> & { clientName: string }): Promise<Testimonial> {
+  public async saveTestimonial(item: Partial<Testimonial> & {
+    await this.requireDatabase(); clientName: string }): Promise<Testimonial> {
     this.invalidateCache();
     const id = item.id || 'test-' + Date.now();
     const testItem: Testimonial = {
@@ -1824,13 +1845,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveTestimonial DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return testItem;
   }
 
   public async deleteTestimonial(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryTestimonials = this.memoryTestimonials.filter(t => t.id !== id);
     if (this.isDbOnline) {
@@ -1838,7 +1860,7 @@ export class PostgresStore {
         const res = await db.delete(testimonials).where(eq(testimonials.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteTestimonial DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1861,7 +1883,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveFounder(item: Partial<Founder> & { name: string; role: string; bio: string; imageUrl: string }): Promise<Founder> {
+  public async saveFounder(item: Partial<Founder> & {
+    await this.requireDatabase(); name: string; role: string; bio: string; imageUrl: string }): Promise<Founder> {
     this.invalidateCache();
     const id = item.id || 'founder-' + Date.now();
     const founderItem: Founder = {
@@ -1938,13 +1961,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveFounder DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return founderItem;
   }
 
   public async deleteFounder(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memoryFounders = this.memoryFounders.filter(f => f.id !== id);
     if (this.isDbOnline) {
@@ -1952,7 +1976,7 @@ export class PostgresStore {
         const res = await db.delete(founders).where(eq(founders.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteFounder DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -1975,7 +1999,8 @@ export class PostgresStore {
     }
   }
 
-  public async saveSocialLink(item: Partial<SocialLink> & { platform: string; url: string }): Promise<SocialLink> {
+  public async saveSocialLink(item: Partial<SocialLink> & {
+    await this.requireDatabase(); platform: string; url: string }): Promise<SocialLink> {
     this.invalidateCache();
     const id = item.id || item.platform.toLowerCase();
     const socialItem: SocialLink = {
@@ -2031,13 +2056,14 @@ export class PostgresStore {
           };
         }
       } catch (err: any) {
-        console.warn('[PostgresStore] saveSocialLink DB note (saved in memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return socialItem;
   }
 
   public async deleteSocialLink(id: string): Promise<boolean> {
+    await this.requireDatabase();
     this.invalidateCache();
     this.memorySocialLinks = this.memorySocialLinks.filter(sl => sl.id !== id);
     if (this.isDbOnline) {
@@ -2045,7 +2071,7 @@ export class PostgresStore {
         const res = await db.delete(socialLinks).where(eq(socialLinks.id, id)).returning();
         return res.length > 0;
       } catch (err: any) {
-        console.warn('[PostgresStore] deleteSocialLink DB note (deleted from memory):', err?.message || err);
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
       }
     }
     return true;
@@ -2071,6 +2097,7 @@ export class PostgresStore {
     originalName: string,
     mimeType: string
   ): Promise<MediaItem> {
+    await this.requireDatabase();
     const id = 'media-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
     const filename = `${id}-${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const base64Data = fileBuffer.toString('base64');
@@ -2123,14 +2150,14 @@ export class PostgresStore {
   }
 
   public async deleteMedia(id: string): Promise<boolean> {
+    await this.requireDatabase();
     try {
       await db.delete(mediaBlobs).where(eq(mediaBlobs.id, id));
       const res = await db.delete(mediaFiles).where(eq(mediaFiles.id, id)).returning();
       return res.length > 0;
     } catch (err: any) {
-      console.warn('[PostgresStore] deleteMedia notice:', err?.message || err);
-      return false;
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+      }
   }
 
   // ==========================================
@@ -2138,7 +2165,8 @@ export class PostgresStore {
   // ==========================================
 
   public async recordActivity(
-    data: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
+    data: Omit<ActivityLog, 'id' | 'timestamp'> & {
+    await this.requireDatabase(); id?: string; timestamp?: string }
   ): Promise<ActivityLog> {
     const id = data.id || `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const timestamp = data.timestamp || new Date().toISOString();
@@ -2179,8 +2207,8 @@ export class PostgresStore {
         createdAt: new Date(timestamp),
       });
     } catch (dbErr) {
-      console.warn('[PostgresStore] Failed to insert activity log to DB (fallback to in-memory):', dbErr);
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+      }
 
     return logEntry;
   }
@@ -2216,11 +2244,12 @@ export class PostgresStore {
   }
 
   public async clearActivityLogs(): Promise<void> {
+    await this.requireDatabase();
     try {
       await db.delete(activityLogs);
     } catch (err) {
-      console.warn('[PostgresStore] Failed to delete activity logs from DB:', err);
-    }
+        throw new Error('Persistent database operation failed; no change was confirmed.', { cause: err });
+      }
     this.memoryActivityLogs = [];
   }
 
