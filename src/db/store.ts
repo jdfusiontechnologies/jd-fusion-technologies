@@ -2275,8 +2275,8 @@ export class PostgresStore {
   }
 
   // --- Persistent Visitor & Traffic Analytics Engine ---
-  public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{
-    await this.requireDatabase(); success: boolean; totalToday: number }> {
+  public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{ success: boolean; totalToday: number }> {
+    await this.requireDatabase();
     const sanitizedIp = (ip || '').split(',')[0].trim() || '127.0.0.1';
     const visitedPath = (path || '/').slice(0, 2048);
     const agent = (userAgent || 'Standard Web Browser').slice(0, 1024);
