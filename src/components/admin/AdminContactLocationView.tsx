@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ContactSettings, LocationSettings } from '../../types';
 import { api } from '../../lib/api';
 import { Save, Phone, MapPin, Check, AlertCircle, Loader2 } from 'lucide-react';
@@ -6,7 +6,7 @@ import { Save, Phone, MapPin, Check, AlertCircle, Loader2 } from 'lucide-react';
 interface AdminContactLocationViewProps {
   contact?: ContactSettings;
   location?: LocationSettings;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }
 
 export const AdminContactLocationView: React.FC<AdminContactLocationViewProps> = ({
@@ -42,6 +42,14 @@ export const AdminContactLocationView: React.FC<AdminContactLocationViewProps> =
     ...defaultLocation,
     ...(location || {}),
   });
+  useEffect(() => {
+    setContactData({ ...defaultContact, ...(contact || {}) });
+  }, [contact]);
+
+  useEffect(() => {
+    setLocationData({ ...defaultLocation, ...(location || {}) });
+  }, [location]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -51,9 +59,10 @@ export const AdminContactLocationView: React.FC<AdminContactLocationViewProps> =
     setFeedback(null);
 
     try {
-      await Promise.all([api.updateContact(contactData), api.updateLocation(locationData)]);
-      setFeedback({ type: 'success', message: 'Contact channels & location coordinates updated!' });
-      onRefresh();
+      await api.updateContact(contactData);
+      await api.updateLocation(locationData);
+      await onRefresh();
+      setFeedback({ type: 'success', message: 'Contact details saved and the public website has been refreshed.' });
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save contact/location.' });
     } finally {

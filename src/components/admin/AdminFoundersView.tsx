@@ -11,11 +11,6 @@ import {
   X,
   Save,
   Loader2,
-  Linkedin,
-  Twitter,
-  Github,
-  Mail,
-  Quote,
   Eye,
   EyeOff,
   Code2,
@@ -43,29 +38,20 @@ export const AdminFoundersView: React.FC<AdminFoundersViewProps> = ({
     role: 'Founder',
     bio: '',
     imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=85',
-    linkedInUrl: 'https://linkedin.com/company/jdfusiontech',
-    twitterUrl: 'https://twitter.com/jdfusiontech',
-    githubUrl: 'https://github.com/jdfusion-technologies',
-    email: '',
-    specialties: ['Digital Architecture', 'UI/UX Design Systems'],
-    quote: '',
     displayOrder: (founders?.length || 0) + 1,
     isPublished: true,
   };
 
   const [formData, setFormData] = useState<Partial<Founder>>(initialNewFounder);
-  const [specialtiesText, setSpecialtiesText] = useState<string>('');
 
   const handleOpenCreate = () => {
     setFormData({ ...initialNewFounder });
-    setSpecialtiesText(initialNewFounder.specialties?.join(', ') || '');
     setIsCreating(true);
     setEditingFounder(null);
   };
 
   const handleOpenEdit = (item: Founder) => {
     setFormData({ ...item });
-    setSpecialtiesText(item.specialties?.join(', ') || '');
     setEditingFounder(item);
     setIsCreating(false);
   };
@@ -85,19 +71,12 @@ export const AdminFoundersView: React.FC<AdminFoundersViewProps> = ({
     setIsSaving(true);
     setFeedback(null);
 
-    const parsedSpecialties = specialtiesText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
     const payload = {
       ...formData,
       name: formData.name.trim(),
       role: formData.role.trim(),
       bio: formData.bio.trim(),
-      quote: formData.quote?.trim() || undefined,
       imageUrl: formData.imageUrl?.trim() || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=85',
-      specialties: parsedSpecialties,
       displayOrder: Number(formData.displayOrder) || 0,
     };
 
@@ -141,11 +120,11 @@ export const AdminFoundersView: React.FC<AdminFoundersViewProps> = ({
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <h1 className="text-xl sm:text-2xl font-bold font-['Outfit'] text-stone-900 dark:text-white">
-              Founders &amp; Leadership Directory
+              Founders &amp; Leadership
             </h1>
           </div>
           <p className="text-xs text-stone-500 dark:text-zinc-400 mt-1">
-            Manage company co-founders, executive profiles, bios, headshots, credentials, and social channels.
+            Add or update founder names, positions, photos, and short biographies.
           </p>
         </div>
 
@@ -246,37 +225,8 @@ export const AdminFoundersView: React.FC<AdminFoundersViewProps> = ({
                   {item.bio}
                 </p>
 
-                {item.quote && (
-                  <div className="p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-950/60 border border-stone-200/60 dark:border-zinc-800 text-[11px] italic text-stone-600 dark:text-zinc-400 flex items-start gap-1.5">
-                    <Quote className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                    <span className="line-clamp-2">&ldquo;{item.quote}&rdquo;</span>
-                  </div>
-                )}
-
-                {item.specialties && item.specialties.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.specialties.map((s, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 font-medium"
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* Socials & Email info */}
-              <div className="pt-3 mt-3 border-t border-stone-100 dark:border-zinc-800/80 flex items-center justify-between text-xs text-stone-400">
-                <div className="flex items-center gap-2">
-                  {item.linkedInUrl && <Linkedin className="w-3.5 h-3.5 text-blue-500" />}
-                  {item.twitterUrl && <Twitter className="w-3.5 h-3.5 text-sky-400" />}
-                  {item.githubUrl && <Github className="w-3.5 h-3.5 text-stone-700 dark:text-zinc-300" />}
-                  {item.email && <Mail className="w-3.5 h-3.5 text-orange-500" />}
-                </div>
-                <span className="text-[11px]">{item.email || 'No email set'}</span>
-              </div>
             </div>
           ))
         ) : (
@@ -360,86 +310,6 @@ export const AdminFoundersView: React.FC<AdminFoundersViewProps> = ({
                   placeholder="Summarize expertise, background, role in product delivery, and vision..."
                   className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                  Specialties &amp; Focus (comma-separated tags)
-                </label>
-                <input
-                  type="text"
-                  value={specialtiesText}
-                  onChange={(e) => setSpecialtiesText(e.target.value)}
-                  placeholder="e.g. Brand Identity, UI/UX Architecture, Cloud Architecture, DevOps"
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                  Founder Quote / Engineering Philosophy
-                </label>
-                <input
-                  type="text"
-                  value={formData.quote || ''}
-                  onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
-                  placeholder="e.g. Great technology without impeccable design is invisible..."
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                    Direct Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email || ''}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g. joshua@jdfusiontech.com"
-                    className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                    LinkedIn URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.linkedInUrl || ''}
-                    onChange={(e) => setFormData({ ...formData, linkedInUrl: e.target.value })}
-                    placeholder="https://linkedin.com/in/..."
-                    className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                    Twitter / X URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.twitterUrl || ''}
-                    onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
-                    placeholder="https://twitter.com/..."
-                    className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-zinc-300 mb-1">
-                    GitHub URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.githubUrl || ''}
-                    onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
-                    placeholder="https://github.com/..."
-                    className="w-full px-3 py-2 rounded-xl text-xs bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-stone-900 dark:text-white focus:outline-hidden focus:border-blue-500"
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

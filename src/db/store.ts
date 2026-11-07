@@ -417,7 +417,7 @@ export class PostgresStore {
   private isDbOnline = isPostgresConfigured;
   private cachedPublicData: PublicSiteData | null = null;
   private cachedTimestamp: number = 0;
-  private readonly CACHE_TTL_MS = 30 * 1000; // 30 seconds
+  private readonly CACHE_TTL_MS = 1000; // Keep cross-instance public content freshness within one second.
 
   private memorySiteSettings: SiteSettings = { ...initialSiteSettings };
   private memoryAboutContent: AboutContent = { ...initialAboutContent };
@@ -1353,6 +1353,7 @@ export class PostgresStore {
           .returning();
 
         if (updated) {
+          this.invalidateCache();
           return {
             id: updated.id,
             email: updated.email,
@@ -1403,6 +1404,7 @@ export class PostgresStore {
           .returning();
 
         if (updated) {
+          this.invalidateCache();
           return {
             id: updated.id,
             locationName: updated.locationName,
