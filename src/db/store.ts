@@ -504,233 +504,15 @@ export class PostgresStore {
   }
 
   public async ensureTablesExist(): Promise<void> {
-    if (!isPostgresConfigured || !this.isDbOnline) {
-      return;
-    }
-    try {
-      // First verify if tables already exist in public schema
-      const checkRes = await pool.query(`
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_name = 'site_settings' 
-        LIMIT 1;
-      `);
-      if (checkRes.rows && checkRes.rows.length > 0) {
-        // Database tables already provisioned and ready
-        return;
-      }
-
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          uid TEXT NOT NULL UNIQUE,
-          email TEXT NOT NULL,
-          name TEXT NOT NULL DEFAULT 'Admin User',
-          role TEXT NOT NULL DEFAULT 'admin',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          last_login_at TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS site_settings (
-          id TEXT PRIMARY KEY,
-          site_name TEXT NOT NULL,
-          brand_name TEXT,
-          tagline TEXT NOT NULL,
-          logo_url TEXT NOT NULL,
-          icon_url TEXT NOT NULL,
-          hero_headline TEXT,
-          hero_subheadline TEXT NOT NULL,
-          hero_badge_text TEXT NOT NULL,
-          primary_cta_text TEXT NOT NULL,
-          secondary_cta_text TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS about_content (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          intro TEXT NOT NULL,
-          bio TEXT NOT NULL,
-          mission TEXT NOT NULL,
-          vision TEXT NOT NULL,
-          approach TEXT NOT NULL,
-          highlights JSONB NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS services (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          icon_name TEXT NOT NULL,
-          short_description TEXT NOT NULL,
-          full_description TEXT NOT NULL,
-          features JSONB NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS web_projects (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          description TEXT NOT NULL,
-          main_image TEXT NOT NULL,
-          additional_images JSONB NOT NULL,
-          technologies JSONB NOT NULL,
-          project_url TEXT,
-          github_url TEXT,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS graphic_projects (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          category TEXT NOT NULL,
-          description TEXT NOT NULL,
-          main_image TEXT NOT NULL,
-          gallery_images JSONB NOT NULL,
-          tags JSONB NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT false,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS testimonials (
-          id TEXT PRIMARY KEY,
-          client_name TEXT NOT NULL,
-          client_company TEXT NOT NULL,
-          client_role TEXT NOT NULL,
-          message TEXT NOT NULL,
-          client_image TEXT,
-          rating INTEGER NOT NULL DEFAULT 5,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_featured BOOLEAN NOT NULL DEFAULT true,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS founders (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          role TEXT NOT NULL,
-          bio TEXT NOT NULL,
-          image_url TEXT NOT NULL,
-          linkedin_url TEXT,
-          twitter_url TEXT,
-          github_url TEXT,
-          email TEXT,
-          specialties JSONB NOT NULL DEFAULT '[]'::jsonb,
-          quote TEXT,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS inquiries (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          email TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          service TEXT NOT NULL,
-          description TEXT NOT NULL,
-          preferred_contact TEXT NOT NULL DEFAULT 'whatsapp',
-          status TEXT NOT NULL DEFAULT 'new',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS contact_settings (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          whatsapp TEXT NOT NULL,
-          description TEXT NOT NULL,
-          business_hours TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS location_settings (
-          id TEXT PRIMARY KEY,
-          location_name TEXT NOT NULL,
-          address TEXT NOT NULL,
-          map_link TEXT NOT NULL,
-          coordinates TEXT NOT NULL,
-          description TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS social_links (
-          id TEXT PRIMARY KEY,
-          platform TEXT NOT NULL,
-          platform_name TEXT NOT NULL,
-          url TEXT NOT NULL,
-          icon TEXT NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_published BOOLEAN NOT NULL DEFAULT true,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS media_files (
-          id TEXT PRIMARY KEY,
-          filename TEXT NOT NULL,
-          original_name TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          size INTEGER NOT NULL,
-          url TEXT NOT NULL,
-          provider TEXT NOT NULL DEFAULT 'postgres',
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS media_blobs (
-          id TEXT PRIMARY KEY,
-          data TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS seo_settings (
-          id TEXT PRIMARY KEY,
-          site_title TEXT,
-          meta_description TEXT NOT NULL,
-          og_image_url TEXT,
-          keywords TEXT NOT NULL,
-          canonical_url TEXT,
-          robots_directive TEXT,
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS activity_logs (
-          id TEXT PRIMARY KEY,
-          type TEXT NOT NULL,
-          title TEXT NOT NULL,
-          description TEXT NOT NULL,
-          severity TEXT NOT NULL,
-          ip TEXT NOT NULL,
-          user_agent TEXT,
-          location TEXT,
-          path TEXT,
-          metadata JSONB,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-    } catch (tableErr: any) {
-      if (tableErr?.code === '42501' || tableErr?.message?.includes('already exists')) {
-        return;
-      }
-      console.warn('[PostgresStore] Schema verify note (resilient fallback active):', tableErr?.message || tableErr);
-    }
+    if (!isPostgresConfigured) throw new Error('DATABASE_URL or POSTGRES_URL is required for persistent database storage.');
+    const expectedTables = ['users','site_settings','about_content','services','web_projects','graphic_projects','testimonials','inquiries','contact_settings','location_settings','social_links','media_files','media_blobs','seo_settings','activity_logs','founders','visitor_visits','visitor_daily_rollups'];
+    const result = await pool.query(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = ANY($1::text[])`,
+      [expectedTables]
+    );
+    const existing = new Set(result.rows.map((row: { table_name: string }) => row.table_name));
+    const missing = expectedTables.filter((name) => !existing.has(name));
+    if (missing.length) throw new Error(`Database schema is incomplete. Missing tables: ${missing.join(', ')}. Apply the existing Drizzle schema before deploying.`);
   }
 
   public async initSeedIfNeeded(): Promise<void> {
@@ -752,8 +534,8 @@ export class PostgresStore {
       this.isInitialized = true;
     } catch (err: any) {
       this.isDbOnline = false;
-      this.isInitialized = true;
-      console.warn('[PostgresStore] Database connection note (active in resilient fallback mode):', err?.message || err);
+      this.isInitialized = false;
+      console.warn('[PostgresStore] Database connection failed; a later request will retry:', err?.message || err);
     }
   }
 
@@ -1311,51 +1093,22 @@ export class PostgresStore {
 
   public async addInquiry(data: Omit<Inquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<Inquiry> {
     await this.initSeedIfNeeded();
+    if (!this.isDbOnline) throw new Error('The database is currently unavailable. Your inquiry was not accepted; please try again shortly.');
     const id = 'inq-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-    const inqItem: Inquiry = {
-      id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      service: data.service,
-      description: data.description,
-      preferredContact: data.preferredContact,
-      status: 'new',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const [inserted] = await db.insert(inquiries).values({
+      id, name: data.name, email: data.email, phone: data.phone, service: data.service,
+      description: data.description, preferredContact: data.preferredContact, status: 'new',
+    }).returning();
+    if (!inserted) throw new Error('The inquiry could not be confirmed as saved.');
+    const saved: Inquiry = {
+      ...inserted,
+      preferredContact: inserted.preferredContact as any,
+      status: inserted.status as any,
+      createdAt: inserted.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: inserted.updatedAt?.toISOString() || new Date().toISOString(),
     };
-    this.memoryInquiries.unshift(inqItem);
-
-    if (this.isDbOnline) {
-      try {
-        const [inserted] = await db
-          .insert(inquiries)
-          .values({
-            id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            service: data.service,
-            description: data.description,
-            preferredContact: data.preferredContact,
-            status: 'new',
-          })
-          .returning();
-
-        if (inserted) {
-          return {
-            ...inserted,
-            preferredContact: inserted.preferredContact as any,
-            status: inserted.status as any,
-            createdAt: inserted.createdAt?.toISOString() || inqItem.createdAt,
-            updatedAt: inserted.updatedAt?.toISOString() || inqItem.updatedAt,
-          };
-        }
-      } catch (err: any) {
-        console.warn('[PostgresStore] addInquiry DB note (saved in memory):', err?.message || err);
-      }
-    }
-    return inqItem;
+    this.memoryInquiries.unshift(saved);
+    return saved;
   }
 
   public async updateInquiryStatus(id: string, status: 'new' | 'read' | 'archived'): Promise<Inquiry | null> {
@@ -2495,142 +2248,66 @@ export class PostgresStore {
     };
   }
 
-  // --- Visitor & Traffic Analytics Engine ---
-  private visitorLog: Array<{ ip: string; path: string; userAgent?: string; timestamp: Date }> = [];
-  private liveVisitorCounts = {
-    todayExtra: 0,
-    weekExtra: 0,
-    monthExtra: 0,
-    yearExtra: 0,
-    uniqueIps: new Set<string>(),
-  };
-
+  // --- Persistent Visitor & Traffic Analytics Engine ---
   public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{ success: boolean; totalToday: number }> {
-    const sanitizedIp = ip.split(',')[0].trim() || '127.0.0.1';
-    const entry = {
-      ip: sanitizedIp,
-      path: path || '/',
-      userAgent: userAgent || 'Standard Web Browser',
-      timestamp: new Date(),
-    };
-
-    this.visitorLog.unshift(entry);
-    if (this.visitorLog.length > 1000) {
-      this.visitorLog.pop();
-    }
-
-    this.liveVisitorCounts.todayExtra += 1;
-    this.liveVisitorCounts.weekExtra += 1;
-    this.liveVisitorCounts.monthExtra += 1;
-    this.liveVisitorCounts.yearExtra += 1;
-    this.liveVisitorCounts.uniqueIps.add(sanitizedIp);
-
-    return {
-      success: true,
-      totalToday: 345 + this.liveVisitorCounts.todayExtra,
-    };
+    const sanitizedIp = (ip || '').split(',')[0].trim() || '127.0.0.1';
+    const visitedPath = (path || '/').slice(0, 2048);
+    const agent = (userAgent || 'Standard Web Browser').slice(0, 1024);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`INSERT INTO visitor_visits (ip, path, user_agent, visited_at) VALUES ($1, $2, $3, NOW())`, [sanitizedIp, visitedPath, agent]);
+      await client.query(
+        `INSERT INTO visitor_daily_rollups (date_key, total_visits, unique_visitors, top_path, updated_at)
+         SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'), COUNT(*)::int, COUNT(DISTINCT ip)::int,
+           COALESCE((SELECT path FROM visitor_visits WHERE visited_at::date = CURRENT_DATE GROUP BY path ORDER BY COUNT(*) DESC LIMIT 1), '/'), NOW()
+         FROM visitor_visits WHERE visited_at::date = CURRENT_DATE
+         ON CONFLICT (date_key) DO UPDATE SET total_visits=EXCLUDED.total_visits, unique_visitors=EXCLUDED.unique_visitors, top_path=EXCLUDED.top_path, updated_at=NOW()`
+      );
+      const count = await client.query(`SELECT total_visits FROM visitor_daily_rollups WHERE date_key = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')`);
+      await client.query('COMMIT');
+      return { success: true, totalToday: Number(count.rows[0]?.total_visits || 0) };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
   }
 
   public async getVisitorStats(): Promise<VisitorStats> {
-    const now = new Date();
-    const liveExtraToday = this.liveVisitorCounts.todayExtra;
-    const liveExtraWeek = this.liveVisitorCounts.weekExtra;
-    const liveExtraMonth = this.liveVisitorCounts.monthExtra;
-    const liveExtraYear = this.liveVisitorCounts.yearExtra;
-    const liveUniques = this.liveVisitorCounts.uniqueIps.size;
-
-    // 1. Daily Breakdown (Last 14 days)
-    const dailyBreakdown: VisitorBreakdownItem[] = [];
-    const baseDailyCounts = [142, 168, 155, 189, 210, 194, 230, 215, 248, 260, 275, 290, 310, 345];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const isToday = i === 0;
-      const label = isToday ? 'Today' : `${monthNames[d.getMonth()]} ${d.getDate()}`;
-      const dateKey = d.toISOString().split('T')[0];
-      const baseVisits = baseDailyCounts[13 - i] || 150;
-      const visits = isToday ? baseVisits + liveExtraToday : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.76) + (isToday ? liveUniques : 0);
-
-      dailyBreakdown.push({
-        label,
-        dateKey,
-        visits,
-        uniqueVisitors,
-      });
+    const [daily, weekly, monthly, yearly, totals] = await Promise.all([
+      pool.query(`SELECT date_key,total_visits,unique_visitors FROM visitor_daily_rollups WHERE date_key >= TO_CHAR(CURRENT_DATE - INTERVAL '13 days','YYYY-MM-DD') ORDER BY date_key`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('week',visited_at),'YYYY-MM-DD') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '8 weeks' GROUP BY DATE_TRUNC('week',visited_at) ORDER BY DATE_TRUNC('week',visited_at)`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('month',visited_at),'YYYY-MM') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '12 months' GROUP BY DATE_TRUNC('month',visited_at) ORDER BY DATE_TRUNC('month',visited_at)`),
+      pool.query(`SELECT EXTRACT(YEAR FROM visited_at)::int AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= DATE_TRUNC('year',NOW())-INTERVAL '3 years' GROUP BY EXTRACT(YEAR FROM visited_at) ORDER BY period`),
+      pool.query(`SELECT COUNT(*) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS today,COUNT(DISTINCT ip) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS unique_today,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS this_week,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS unique_week,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS this_month,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS unique_month,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS this_year,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS unique_year,COUNT(*)::int AS total FROM visitor_visits`),
+    ]);
+    const n=(v:unknown)=>Number(v||0);
+    const dailyMap=new Map(daily.rows.map((r:any)=>[r.date_key,r]));
+    const dailyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=13;offset>=0;offset--){
+      const d=new Date();d.setDate(d.getDate()-offset);const key=d.toISOString().slice(0,10);const row:any=dailyMap.get(key);
+      dailyBreakdown.push({label:offset===0?'Today':d.toLocaleDateString('en',{month:'short',day:'numeric'}),dateKey:key,visits:n(row?.total_visits),uniqueVisitors:n(row?.unique_visitors)});
     }
-
-    // 2. Weekly Breakdown (Last 8 weeks)
-    const weeklyBreakdown: VisitorBreakdownItem[] = [];
-    const baseWeeklyCounts = [1120, 1280, 1450, 1390, 1620, 1780, 1910, 2150];
-    for (let i = 7; i >= 0; i--) {
-      const isThisWeek = i === 0;
-      const label = isThisWeek ? 'This Week' : `Week -${i}`;
-      const baseVisits = baseWeeklyCounts[7 - i] || 1200;
-      const visits = isThisWeek ? baseVisits + liveExtraWeek : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.74) + (isThisWeek ? liveUniques : 0);
-
-      weeklyBreakdown.push({
-        label,
-        visits,
-        uniqueVisitors,
-      });
+    const weeklyMap=new Map(weekly.rows.map((r:any)=>[r.period,r]));
+    const weeklyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=7;offset>=0;offset--){
+      const d=new Date();d.setDate(d.getDate()-offset*7);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));
+      const key=d.toISOString().slice(0,10);const row:any=weeklyMap.get(key);
+      weeklyBreakdown.push({label:offset===0?'This Week':`Week -${offset}`,visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});
     }
-
-    // 3. Monthly Breakdown (Last 12 months)
-    const monthlyBreakdown: VisitorBreakdownItem[] = [];
-    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonthIdx = now.getMonth();
-    const baseMonthlyVisits = [4100, 4350, 4800, 5200, 5600, 5950, 6400, 6800, 7150, 7600, 8100, 8650];
-
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), currentMonthIdx - i, 1);
-      const isThisMonth = i === 0;
-      const label = `${monthLabels[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
-      const baseVisits = baseMonthlyVisits[11 - i] || 5000;
-      const visits = isThisMonth ? baseVisits + liveExtraMonth : baseVisits;
-      const uniqueVisitors = Math.round(visits * 0.72) + (isThisMonth ? liveUniques : 0);
-
-      monthlyBreakdown.push({
-        label,
-        dateKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        visits,
-        uniqueVisitors,
-      });
+    const monthlyMap=new Map(monthly.rows.map((r:any)=>[r.period,r]));
+    const monthlyBreakdown:VisitorBreakdownItem[]=[];
+    for(let offset=11;offset>=0;offset--){
+      const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-offset);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;const row:any=monthlyMap.get(key);
+      monthlyBreakdown.push({label:d.toLocaleDateString('en',{month:'short',year:'2-digit'}),dateKey:key,visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});
     }
-
-    // 4. Yearly Breakdown (Past 4 years)
-    const currentYear = now.getFullYear();
-    const yearlyBreakdown: VisitorBreakdownItem[] = [
-      { label: `${currentYear - 3}`, visits: 24200, uniqueVisitors: 18100 },
-      { label: `${currentYear - 2}`, visits: 41800, uniqueVisitors: 31200 },
-      { label: `${currentYear - 1}`, visits: 68500, uniqueVisitors: 51800 },
-      { label: `${currentYear} (YTD)`, visits: 89400 + liveExtraYear, uniqueVisitors: 67200 + liveUniques },
-    ];
-
-    const todayVisits = dailyBreakdown[dailyBreakdown.length - 1]?.visits || 345;
-    const thisWeekVisits = weeklyBreakdown[weeklyBreakdown.length - 1]?.visits || 2150;
-    const thisMonthVisits = monthlyBreakdown[monthlyBreakdown.length - 1]?.visits || 8650;
-    const thisYearVisits = yearlyBreakdown[yearlyBreakdown.length - 1]?.visits || 89400;
-
-    return {
-      today: todayVisits,
-      thisWeek: thisWeekVisits,
-      thisMonth: thisMonthVisits,
-      thisYear: thisYearVisits,
-      totalAllTime: 223900 + liveExtraYear,
-      uniqueToday: Math.round(todayVisits * 0.76),
-      uniqueThisWeek: Math.round(thisWeekVisits * 0.74),
-      uniqueThisMonth: Math.round(thisMonthVisits * 0.72),
-      uniqueThisYear: Math.round(thisYearVisits * 0.75),
-      dailyBreakdown,
-      weeklyBreakdown,
-      monthlyBreakdown,
-      yearlyBreakdown,
-    };
+    const yearlyMap=new Map(yearly.rows.map((r:any)=>[String(r.period),r]));
+    const yearNow=new Date().getFullYear();const yearlyBreakdown:VisitorBreakdownItem[]=[];
+    for(let year=yearNow-3;year<=yearNow;year++){const row:any=yearlyMap.get(String(year));yearlyBreakdown.push({label:year===yearNow?`${year} (YTD)`:String(year),visits:n(row?.visits),uniqueVisitors:n(row?.uniques)});}
+    const t=totals.rows[0]||{};
+    return {today:n(t.today),thisWeek:n(t.this_week),thisMonth:n(t.this_month),thisYear:n(t.this_year),totalAllTime:n(t.total),uniqueToday:n(t.unique_today),uniqueThisWeek:n(t.unique_week),uniqueThisMonth:n(t.unique_month),uniqueThisYear:n(t.unique_year),dailyBreakdown,weeklyBreakdown,monthlyBreakdown,yearlyBreakdown};
   }
+
 }
 
 export const postgresStore = PostgresStore.getInstance();
