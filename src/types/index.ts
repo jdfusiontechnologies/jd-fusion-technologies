@@ -3,6 +3,8 @@ export interface AdminUser {
   email: string;
   name: string;
   role: string;
+  permissions?: string[];
+  mustChangePassword?: boolean;
   passwordHash?: string;
   createdAt: string;
   updatedAt: string;
