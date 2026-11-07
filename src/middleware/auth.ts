@@ -69,12 +69,12 @@ const routeModule = (path: string): string | null => {
 export const requireAdminPermission = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const user = req.user as any;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
-  if (user.role === 'super_admin' || user.id === 'admin-env') return next();
+  const requestPath = req.originalUrl.split('?')[0];
+  if (user.mustChangePassword && !requestPath.includes('/change-password') && !requestPath.includes('/profile')) {\n    return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });\n  }\n  if (user.role === 'super_admin' || user.id === 'admin-env') return next();
   if (!Array.isArray(user.permissions)) return next();
 
   const module = routeModule(req.originalUrl.split('?')[0]);
   if (module === null) return next();
-  if (user.mustChangePassword) return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });
   // The site-data response is filtered by permissions in the route handler.
   if (module === 'site-data') return next();
   if (user.role === 'admin' && user.permissions.includes(module)) return next();
