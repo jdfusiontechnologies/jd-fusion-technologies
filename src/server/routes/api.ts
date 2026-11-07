@@ -19,6 +19,11 @@ const upload = multer({
 // ==========================================
 
 const handleGetPublicSiteData = async (_req: Request, res: Response) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
   try {
     const data = await postgresStore.getPublicSiteData();
     res.json(data);
