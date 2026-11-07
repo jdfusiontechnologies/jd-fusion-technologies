@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { adminAuth } from '../lib/firebase-admin.ts';
 import { DecodedIdToken } from 'firebase-admin/auth';
 import { AuthService } from '../server/auth/authService.ts';
+import { getOrCreateUser } from '../db/users.ts';
 
 export interface AuthenticatedRequest extends Request {
   user?: DecodedIdToken | {
@@ -25,7 +26,7 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
   try {
     const decodedFirebaseToken = await adminAuth.verifyIdToken(token);
     req.user = decodedFirebaseToken;
-    return next();
+    if (decodedFirebaseToken.uid && decodedFirebaseToken.email) {\n      getOrCreateUser(decodedFirebaseToken.uid, decodedFirebaseToken.email, (decodedFirebaseToken as any).name).catch((err) => {\n        console.warn('[Auth] Non-blocking Firebase user sync failed:', err?.message || err);\n      });\n    }\n    return next();
   } catch {
     const decodedJwt = AuthService.verifyToken(token);
     if (!decodedJwt) return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
