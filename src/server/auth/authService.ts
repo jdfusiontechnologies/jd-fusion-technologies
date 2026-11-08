@@ -186,7 +186,22 @@ export class AuthService {
       validPassword = constantTimeStringEqual(passwordPlain, configuredPassword);
     }
     if (!validIdentifier || !validPassword) {
-      await this.recordFailedLogin(cleanId, clientIp, userAgent);
+      if (validIdentifier) {
+        // Keep audit visibility without letting failed attempts against the
+        // exempt break-glass account consume another administrator's IP quota.
+        await postgresStore.recordActivity({
+          type: 'legacy_login_failed',
+          title: 'Failed JD Fusion Technologies Super Admin Login',
+          description: `Failed legacy administrator login attempt from IP ${clientIp}.`,
+          severity: 'warning',
+          ip: clientIp,
+          userAgent,
+          path: '/api/auth/login',
+          metadata: { attemptedIdentifier: cleanId },
+        });
+      } else {
+        await this.recordFailedLogin(cleanId, clientIp, userAgent);
+      }
       return { success: false, error: 'Invalid username/email or password.' };
     }
 
