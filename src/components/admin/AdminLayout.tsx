@@ -82,7 +82,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-zinc-950 text-stone-900 dark:text-zinc-100 flex flex-col lg:flex-row">
-      
       {/* Mobile Top Bar */}
       <div className="lg:hidden h-16 bg-white dark:bg-black border-b border-stone-200 dark:border-zinc-800 px-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2">
@@ -93,16 +92,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <span className="font-bold text-sm font-['Outfit']">JD Fusion CMS</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={logout}
+            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold transition-colors"
+            title="Log out"
+            aria-label="Log out"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log out</span>
+          </button>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg text-stone-600 dark:text-zinc-400 hover:bg-stone-100 dark:hover:bg-zinc-800"
+            title="Toggle theme"
+            aria-label="Toggle theme"
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-orange-400" /> : <Moon className="w-4 h-4 text-blue-600" />}
           </button>
           <button
             onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
             className="p-2 rounded-lg text-stone-700 dark:text-zinc-300 hover:bg-stone-100 dark:hover:bg-zinc-800"
+            aria-label={isMobileSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
           >
             {isMobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -135,6 +146,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             <button
               onClick={() => setIsMobileSidebarOpen(false)}
               className="lg:hidden p-1 rounded-md text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-800"
+              aria-label="Close navigation menu"
             >
               <X className="w-5 h-5" />
             </button>
@@ -173,28 +185,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
         {/* Bottom User Bar */}
         <div className="p-4 border-t border-stone-200 dark:border-zinc-800 bg-stone-50 dark:bg-zinc-950/50 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center font-bold text-xs shrink-0">
-                {admin?.name?.charAt(0) || 'A'}
-              </div>
-              <div className="truncate">
-                <p className="text-xs font-bold text-stone-900 dark:text-white truncate">
-                  {admin?.name || 'Administrator'}
-                </p>
-                <p className="text-[10px] text-stone-500 dark:text-zinc-500 truncate">
-                  {admin?.email}
-                </p>
-              </div>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center font-bold text-xs shrink-0">
+              {admin?.name?.charAt(0) || 'A'}
             </div>
-            <button
-              onClick={logout}
-              className="p-1.5 rounded-lg text-stone-500 hover:text-red-500 hover:bg-stone-200 dark:hover:bg-zinc-800 transition-colors"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="truncate">
+              <p className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                {admin?.name || 'Administrator'}
+              </p>
+              <p className="text-[10px] text-stone-500 dark:text-zinc-500 truncate">
+                {admin?.email}
+              </p>
+            </div>
           </div>
+
+          <button
+            onClick={logout}
+            className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-950/70 text-red-700 dark:text-red-300 text-xs font-bold border border-red-200 dark:border-red-900/60 transition-colors"
+            title="Log out of the admin account"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log out</span>
+          </button>
 
           <button
             onClick={onViewLiveSite}
@@ -208,7 +220,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
-        
         {/* Desktop Top Header Bar */}
         <header className="hidden lg:flex h-16 bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-zinc-800 px-8 items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2">
@@ -223,6 +234,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               onClick={toggleTheme}
               className="p-2 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-100 dark:hover:bg-zinc-800 border border-stone-200 dark:border-zinc-800 transition-colors"
               title="Toggle theme"
+              aria-label="Toggle theme"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -234,14 +246,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Preview Live Site</span>
             </button>
+
+            <button
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-950/70 text-red-700 dark:text-red-300 text-xs font-bold border border-red-200 dark:border-red-900/60 transition-colors"
+              title="Log out of the admin account"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Log out</span>
+            </button>
           </div>
         </header>
 
         {/* Dynamic View Body */}
         <div className="p-4 sm:p-6 lg:p-8 flex-1">{children}</div>
-
       </main>
-
     </div>
   );
 };
