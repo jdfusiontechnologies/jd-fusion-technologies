@@ -94,6 +94,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
         <div className="flex items-center gap-1">
           <button
+            onClick={onViewLiveSite}
+            className="p-2 rounded-lg text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40"
+            title="View Live Website"
+            aria-label="View Live Website"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </button>
+          <button
             onClick={logout}
             className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold transition-colors"
             title="Log out"
