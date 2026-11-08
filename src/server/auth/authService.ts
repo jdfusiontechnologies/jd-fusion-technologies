@@ -46,24 +46,41 @@ export interface AdminAccountSession {
 }
 
 export class AuthService {
-  static async isRateLimited(ip: string): Promise<{ limited: boolean; retryAfterSeconds?: number }> {
+  static async isRateLimited(ip: string, identifier: string): Promise<{ limited: boolean; retryAfterSeconds?: number }> {
     try {
       const result = await pool.query(
-        `SELECT COUNT(*)::int AS attempts, MIN(created_at) AS oldest_attempt
+        `SELECT
+           COUNT(*) FILTER (WHERE metadata->>'attemptedIdentifier' = $2)::int AS account_attempts,
+           MIN(created_at) FILTER (WHERE metadata->>'attemptedIdentifier' = $2) AS oldest_account_attempt,
+           COUNT(*)::int AS ip_attempts,
+           MIN(created_at) AS oldest_ip_attempt
          FROM activity_logs
          WHERE ip = $1
-           AND type IN ('login_failed', 'hack_attempt')
+           AND type = 'login_failed'
            AND created_at >= NOW() - INTERVAL '15 minutes'`,
-        [ip]
+        [ip, identifier]
       );
-      const attempts = Number(result.rows[0]?.attempts || 0);
-      if (attempts < 5) return { limited: false };
-      const oldestAttempt = result.rows[0]?.oldest_attempt
-        ? new Date(result.rows[0].oldest_attempt).getTime()
-        : Date.now();
-      return { limited: true, retryAfterSeconds: Math.max(1, Math.ceil((oldestAttempt + 900000 - Date.now()) / 1000)) };
+      const row = result.rows[0] || {};
+      const accountAttempts = Number(row.account_attempts || 0);
+      const ipAttempts = Number(row.ip_attempts || 0);
+
+      // Five failures for the same account from the same IP, or a higher
+      // aggregate ceiling to slow automated attempts across many identifiers.
+      const oldestAttempt = accountAttempts >= 5
+        ? row.oldest_account_attempt
+        : ipAttempts >= 25
+          ? row.oldest_ip_attempt
+          : null;
+      if (!oldestAttempt) return { limited: false };
+
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((new Date(oldestAttempt).getTime() + 15 * 60 * 1000 - Date.now()) / 1000)
+      );
+      return { limited: true, retryAfterSeconds };
     } catch (error) {
       console.error('[Auth] Persistent login rate-limit check failed:', error);
+      // Fail closed if persistent rate-limit state cannot be checked.
       return { limited: true, retryAfterSeconds: 60 };
     }
   }
@@ -82,21 +99,6 @@ export class AuthService {
       return { success: false, error: error.message || 'JWT_SECRET is not configured.' };
     }
 
-    const rateCheck = await this.isRateLimited(clientIp);
-    if (rateCheck.limited) {
-      await postgresStore.recordActivity({
-        type: 'hack_attempt',
-        title: 'Brute-Force Attack Blocked (IP Locked)',
-        description: `Blocked repeated login attempts from IP ${clientIp} targeting '${identifier}'.`,
-        severity: 'danger',
-        ip: clientIp,
-        userAgent,
-        path: '/api/auth/login',
-        metadata: { identifier, retryAfterSeconds: rateCheck.retryAfterSeconds },
-      });
-      return { success: false, error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.` };
-    }
-
     // Database-backed accounts take precedence over the legacy environment account.
     try {
       const accountResult = await pool.query(
@@ -106,6 +108,26 @@ export class AuthService {
         [cleanId]
       );
       const account = accountResult.rows[0];
+
+      // The JD Fusion Technologies legacy environment account is the
+      // break-glass Super Admin. It intentionally bypasses login lockouts.
+      const legacyAdminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+      const legacyAdminUsername = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
+      const isLegacyAdminLogin = !account && (
+        cleanId === legacyAdminEmail ||
+        (Boolean(legacyAdminUsername) && cleanId === legacyAdminUsername)
+      );
+
+      if (!isLegacyAdminLogin) {
+        const rateCheck = await this.isRateLimited(clientIp, cleanId);
+        if (rateCheck.limited) {
+          return {
+            success: false,
+            error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.`,
+          };
+        }
+      }
+
       if (account) {
         const validPassword = account.is_active && await this.verifyPassword(passwordPlain, account.password_hash);
         if (!validPassword) {
