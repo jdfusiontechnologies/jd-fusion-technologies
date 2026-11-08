@@ -143,7 +143,7 @@ export const AdminContactLocationView: React.FC<AdminContactLocationViewProps> =
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-zinc-300 mb-1.5">
-                WhatsApp Hotline / Gateway Number *
+                Floating WhatsApp Button Number *
               </label>
               <input
                 type="text"
@@ -154,7 +154,7 @@ export const AdminContactLocationView: React.FC<AdminContactLocationViewProps> =
                 className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-300 dark:border-zinc-700 text-sm font-mono"
               />
               <span className="text-[11px] text-stone-500 dark:text-zinc-400 mt-1 block">
-                Powers the floating WhatsApp button and instant consultation links.
+                This is the exact number opened by the public floating WhatsApp button. Save changes here to update it across the website.
               </span>
             </div>
 
