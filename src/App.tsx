@@ -548,15 +548,14 @@ const MainAppContent: React.FC = () => {
         );
         if (!whatsappSocial) return null;
 
-        let rawPhone = publicData.contact?.whatsapp || publicData.contact?.phone || '+254 700 000 000';
-        if (whatsappSocial.url && whatsappSocial.url.includes('wa.me/')) {
-          const extracted = whatsappSocial.url.split('wa.me/')[1]?.split('?')[0];
-          if (extracted) rawPhone = extracted;
-        }
+        // The Super Admin's Contact & Location WhatsApp number is the single
+        // source of truth for the floating button. The social profile controls
+        // visibility only; its URL must not silently override the configured number.
+        const rawPhone = publicData.contact?.whatsapp || publicData.contact?.phone || '+254 700 000 000';
 
         return (
           <WhatsAppFloatingButton
-            phone={rawPhone}
+            whatsappNumber={rawPhone}
             brandName={publicData.settings?.brandName || 'JD Fusion Technologies'}
           />
         );
