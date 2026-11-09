@@ -63,8 +63,8 @@ export class AuthService {
       const accountAttempts = Number(row.account_attempts || 0);
       const ipAttempts = Number(row.ip_attempts || 0);
 
-      // Five failures for the same account from the same IP, or a higher
-      // aggregate ceiling to slow automated attempts across many identifiers.
+      // Five failures for the same account across all IPs, or 25 failures
+      // from one IP across identifiers, within the rolling 15-minute window.
       const oldestAttempt = accountAttempts >= 5
         ? row.oldest_account_attempt
         : ipAttempts >= 25
