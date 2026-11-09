@@ -52,11 +52,10 @@ export class AuthService {
         `SELECT
            COUNT(*) FILTER (WHERE metadata->>'attemptedIdentifier' = $2)::int AS account_attempts,
            MIN(created_at) FILTER (WHERE metadata->>'attemptedIdentifier' = $2) AS oldest_account_attempt,
-           COUNT(*)::int AS ip_attempts,
-           MIN(created_at) AS oldest_ip_attempt
+           COUNT(*) FILTER (WHERE ip = $1)::int AS ip_attempts,
+           MIN(created_at) FILTER (WHERE ip = $1) AS oldest_ip_attempt
          FROM activity_logs
-         WHERE ip = $1
-           AND type = 'login_failed'
+         WHERE type = 'login_failed'
            AND created_at >= NOW() - INTERVAL '15 minutes'`,
         [ip, identifier]
       );
@@ -64,8 +63,8 @@ export class AuthService {
       const accountAttempts = Number(row.account_attempts || 0);
       const ipAttempts = Number(row.ip_attempts || 0);
 
-      // Five failures for the same account from the same IP, or a higher
-      // aggregate ceiling to slow automated attempts across many identifiers.
+      // Five failures for the same account across all IPs, or 25 failures
+      // from one IP across identifiers, within the rolling 15-minute window.
       const oldestAttempt = accountAttempts >= 5
         ? row.oldest_account_attempt
         : ipAttempts >= 25
@@ -109,23 +108,14 @@ export class AuthService {
       );
       const account = accountResult.rows[0];
 
-      // The JD Fusion Technologies legacy environment account is the
-      // break-glass Super Admin. It intentionally bypasses login lockouts.
-      const legacyAdminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-      const legacyAdminUsername = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
-      const isLegacyAdminLogin = !account && (
-        cleanId === legacyAdminEmail ||
-        (Boolean(legacyAdminUsername) && cleanId === legacyAdminUsername)
-      );
-
-      if (!isLegacyAdminLogin) {
-        const rateCheck = await this.isRateLimited(clientIp, cleanId);
-        if (rateCheck.limited) {
-          return {
-            success: false,
-            error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.`,
-          };
-        }
+      // Apply persistent account and IP rate limits to every administrator,
+      // including the legacy break-glass Super Admin.
+      const rateCheck = await this.isRateLimited(clientIp, cleanId);
+      if (rateCheck.limited) {
+        return {
+          success: false,
+          error: `Too many failed attempts. Retry in ${rateCheck.retryAfterSeconds} seconds.`,
+        };
       }
 
       if (account) {
@@ -186,22 +176,8 @@ export class AuthService {
       validPassword = constantTimeStringEqual(passwordPlain, configuredPassword);
     }
     if (!validIdentifier || !validPassword) {
-      if (validIdentifier) {
-        // Keep audit visibility without letting failed attempts against the
-        // exempt break-glass account consume another administrator's IP quota.
-        await postgresStore.recordActivity({
-          type: 'legacy_login_failed',
-          title: 'Failed JD Fusion Technologies Super Admin Login',
-          description: `Failed legacy administrator login attempt from IP ${clientIp}.`,
-          severity: 'warning',
-          ip: clientIp,
-          userAgent,
-          path: '/api/auth/login',
-          metadata: { attemptedIdentifier: cleanId },
-        });
-      } else {
-        await this.recordFailedLogin(cleanId, clientIp, userAgent);
-      }
+      // Count legacy Super Admin failures in the same persistent limiter.
+      await this.recordFailedLogin(cleanId, clientIp, userAgent);
       return { success: false, error: 'Invalid username/email or password.' };
     }
 

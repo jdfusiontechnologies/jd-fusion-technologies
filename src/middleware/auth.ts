@@ -20,7 +20,6 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
   const authHeader = req.headers.authorization;
   let token = '';
   if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.split('Bearer ')[1].trim();
-  else if (typeof req.query.token === 'string') token = req.query.token.trim();
   if (!token) return res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
 
   try {
@@ -74,13 +73,20 @@ export const requireAdminPermission = (req: AuthenticatedRequest, res: Response,
   if (user.mustChangePassword && !requestPath.includes('/change-password') && !requestPath.includes('/profile')) {
     return res.status(403).json({ error: 'Change your temporary password before using the administration portal.' });
   }
-  if (user.role === 'super_admin' || user.id === 'admin-env') return next();
-  if (!Array.isArray(user.permissions)) return next();
+  if (user.role === 'super_admin' && (user.id === 'admin-env' || typeof user.id === 'string')) return next();
+  // Authentication alone is not administrator authorization.
+  if (user.role !== 'admin') {
+    return res.status(403).json({ error: 'Administrator access is required.' });
+  }
+  if (!Array.isArray(user.permissions)) {
+    return res.status(403).json({ error: 'Administrator permissions are missing.' });
+  }
 
   const module = routeModule(req.originalUrl.split('?')[0]);
   if (module === null) return next();
-  // The site-data response is filtered by permissions in the route handler.
+  // The site-data response is filtered by permissions in the route handler,
+  // but only after the caller has been confirmed as an administrator.
   if (module === 'site-data') return next();
-  if (user.role === 'admin' && user.permissions.includes(module)) return next();
+  if (user.permissions.includes(module)) return next();
   return res.status(403).json({ error: 'You do not have permission to access this administration module.' });
 };
