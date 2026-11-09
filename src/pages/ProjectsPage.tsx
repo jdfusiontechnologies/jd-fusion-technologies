@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PublicSiteData, WebProject } from '../types';
 import { PageBackground } from '../components/common/PageBackground';
+import { ProjectImageCarousel } from '../components/common/ProjectImageCarousel';
 import {
   Code2,
   Cpu,
@@ -117,11 +118,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 className="aspect-16/10 overflow-hidden relative bg-stone-900 cursor-pointer"
                 onClick={() => onSelectWebProject(p)}
               >
-                <img
-                  src={p.mainImage}
+                <ProjectImageCarousel
+                  mainImage={p.mainImage}
+                  additionalImages={p.additionalImages}
                   alt={p.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
                 />
               </div>
 

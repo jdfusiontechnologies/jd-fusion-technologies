@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { WebProject } from '../../types';
 import { X, ExternalLink, CheckCircle2, Globe } from 'lucide-react';
 
@@ -18,6 +18,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onStartInquiry,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageCount = [project?.mainImage, ...(project?.additionalImages || [])].filter(Boolean).length;
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [project?.id]);
+
+  useEffect(() => {
+    if (!isOpen || imageCount < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveImageIndex((current) => (current + 1) % imageCount);
+    }, 3500);
+    return () => window.clearInterval(timer);
+  }, [isOpen, project?.id, imageCount]);
 
   if (!isOpen || !project) return null;
 
@@ -59,9 +72,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         {/* Media Preview Box */}
         <div className="relative bg-stone-950 aspect-video w-full overflow-hidden flex items-center justify-center">
           <img
+            key={currentImg}
             src={currentImg}
             alt={project.title}
-            className="w-full h-full object-cover sm:object-contain"
+            className="w-full h-full object-cover sm:object-contain animate-in fade-in duration-700"
           />
 
           <div className="absolute top-4 left-4">
@@ -71,24 +85,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </div>
         </div>
 
-        {/* Gallery Thumbnails if multiple */}
-        {allImages.length > 1 && (
-          <div className="px-6 py-3 bg-stone-100 dark:bg-zinc-950 flex items-center gap-3 overflow-x-auto border-b border-stone-200 dark:border-zinc-800">
-            {allImages.map((img, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveImageIndex(idx)}
-                className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
-                  activeImageIndex === idx
-                    ? 'border-orange-500 scale-105 shadow-md'
-                    : 'border-transparent opacity-60 hover:opacity-100'
-                }`}
-              >
-                <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
+
 
         {/* Content Body */}
         <div className="p-6 sm:p-8 space-y-6">
@@ -114,7 +111,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF914D] hover:bg-[#f07e36] text-white text-xs font-semibold shadow-md transition-colors"
                 >
                   <Globe className="w-4 h-4" />
-                  <span>Visit Live Demo</span>
+                  <span>Visit Website</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}

@@ -26,6 +26,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { ImagePickerField } from './ImagePickerField';
+import { MultiImagePickerField } from './MultiImagePickerField';
 
 interface AdminWebProjectsViewProps {
   projects: WebProject[];
@@ -81,7 +82,7 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
     category: 'Website Development',
     description: '',
     technologies: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Tailwind CSS'],
-    mainImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
+    mainImage: '',
     additionalImages: [],
     projectUrl: '',
     githubUrl: null,
@@ -93,6 +94,7 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
   const [formData, setFormData] = useState<Partial<WebProject>>(initialNewProject);
 
   const handleOpenCreate = () => {
+    setFeedback(null);
     setFormData({
       ...initialNewProject,
       order: projects.length + 1,
@@ -102,7 +104,12 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
   };
 
   const handleOpenEdit = (proj: WebProject) => {
-    setFormData({ ...proj, githubUrl: null });
+    setFeedback(null);
+    setFormData({
+      ...proj,
+      additionalImages: Array.isArray(proj.additionalImages) ? [...proj.additionalImages] : [],
+      githubUrl: null,
+    });
     setEditingProject(proj);
     setIsCreating(false);
   };
@@ -137,6 +144,10 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
       setFeedback({ type: 'error', message: 'Project category is required.' });
       return;
     }
+    if (!formData.mainImage?.trim()) {
+      setFeedback({ type: 'error', message: 'Choose a project cover image before saving.' });
+      return;
+    }
 
     setIsSaving(true);
     setFeedback(null);
@@ -144,20 +155,35 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
     try {
       const payload = {
         ...formData,
+        title: formData.title.trim(),
+        category: formData.category.trim(),
+        description: (formData.description || '').trim(),
+        mainImage: formData.mainImage.trim(),
+        additionalImages: (formData.additionalImages || []).filter((url) => typeof url === 'string' && url.trim()),
+        technologies: (formData.technologies || []).filter((technology) => typeof technology === 'string' && technology.trim()),
+        projectUrl: formData.projectUrl?.trim() || null,
+        displayOrder: formData.displayOrder ?? formData.order ?? projects.length + 1,
         githubUrl: null,
       };
 
-      if (editingProject) {
-        await api.updateWebProject(editingProject.id, payload);
-        setFeedback({ type: 'success', message: `Project "${formData.title}" updated successfully!` });
-      } else {
-        await api.createWebProject(payload);
-        setFeedback({ type: 'success', message: `New project "${formData.title}" published live!` });
+      const savedProject = editingProject
+        ? await api.updateWebProject(editingProject.id, payload)
+        : await api.createWebProject(payload);
+
+      if (!savedProject?.id) {
+        throw new Error('The server did not confirm that the project was saved. Please try again.');
       }
+
+      setFeedback({
+        type: 'success',
+        message: editingProject
+          ? `Project "${payload.title}" updated successfully!`
+          : `New project "${payload.title}" created successfully!`,
+      });
       handleCloseModal();
       onRefresh();
     } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message || 'Failed to save project.' });
+      setFeedback({ type: 'error', message: err.message || 'Failed to save project. Your changes have not been confirmed.' });
     } finally {
       setIsSaving(false);
     }
@@ -489,6 +515,12 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
+              {feedback?.type === 'error' && (
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-700 dark:text-red-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{feedback.message}</span>
+                </div>
+              )}
               {/* Title & Category */}
               <div className="space-y-3">
                 <div>
@@ -555,7 +587,14 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
                 required
                 aspectRatio="video"
                 placeholder="https://... or select from gallery"
-                helpText="Choose a high-resolution screenshot, device preview, or architectural diagram."
+                helpText="This is the first image visitors see. Additional project images rotate automatically on the live website."
+              />
+
+              <MultiImagePickerField
+                label="Additional Project Pictures"
+                values={formData.additionalImages || []}
+                onChange={(urls) => setFormData({ ...formData, additionalImages: urls })}
+                helpText="Upload several screenshots or add image links. Existing pictures can be removed or reordered; all pictures rotate in the same frame on the public website."
               />
 
               {/* Live Project / Demo Link */}
