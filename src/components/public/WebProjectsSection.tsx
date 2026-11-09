@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WebProject } from '../../types';
 import { ExternalLink, ArrowUpRight, Code, Eye, Layers, Sparkles } from 'lucide-react';
+import { ProjectImageCarousel } from '../common/ProjectImageCarousel';
 
 interface WebProjectsSectionProps {
   projects?: WebProject[];
@@ -91,11 +92,11 @@ export const WebProjectsSection: React.FC<WebProjectsSectionProps> = ({
                 className="relative aspect-video w-full bg-zinc-950 overflow-hidden cursor-pointer"
                 onClick={() => handleOpen(project)}
               >
-                <img
-                  src={project.mainImage}
+                <ProjectImageCarousel
+                  mainImage={project.mainImage}
+                  additionalImages={project.additionalImages}
                   alt={project.title}
                   className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-                  loading="lazy"
                 />
 
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
