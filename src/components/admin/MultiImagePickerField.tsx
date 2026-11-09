@@ -47,36 +47,26 @@ export const MultiImagePickerField: React.FC<MultiImagePickerFieldProps> = ({
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith('image/')) continue;
+      if (!file.type.startsWith('image/')) {
+        setUploadError(`${file.name} is not a supported image file.`);
+        continue;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        setUploadError(`${file.name} exceeds the 4MB upload limit. Please resize it and try again.`);
+        continue;
+      }
 
       const formData = new FormData();
       formData.append('file', file);
 
       try {
         const res = await api.uploadMedia(formData);
-        if (res.success && res.media?.url) {
-          newUrls.push(res.media.url);
-        } else {
-          // Fallback to data URL
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          newUrls.push(dataUrl);
+        if (!res.success || !res.media?.url) {
+          throw new Error('The media service did not return an image URL.');
         }
-      } catch {
-        // Fallback to data URL on error
-        try {
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          newUrls.push(dataUrl);
-        } catch (err: any) {
-          setUploadError(`Error loading ${file.name}`);
-        }
+        newUrls.push(res.media.url);
+      } catch (err: any) {
+        setUploadError(`Could not upload ${file.name}: ${err.message || 'Please try again.'}`);
       }
     }
 
