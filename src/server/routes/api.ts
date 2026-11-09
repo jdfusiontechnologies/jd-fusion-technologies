@@ -597,19 +597,49 @@ apiRouter.get('/admin/web-projects', requireAuth, async (_req: AuthenticatedRequ
 
 apiRouter.post('/admin/web-projects', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const created = await postgresStore.saveWebProject(req.body);
-    res.json(created);
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    if (typeof body.title !== 'string' || !body.title.trim() || typeof body.category !== 'string' || !body.category.trim()) {
+      return res.status(400).json({ error: 'Project title and category are required.' });
+    }
+    const created = await postgresStore.saveWebProject({
+      ...body,
+      title: body.title.trim(),
+      category: body.category.trim(),
+      additionalImages: Array.isArray(body.additionalImages) ? body.additionalImages.filter((url: unknown) => typeof url === 'string' && url.trim()) : [],
+      technologies: Array.isArray(body.technologies) ? body.technologies.filter((item: unknown) => typeof item === 'string' && item.trim()) : [],
+    });
+    return res.status(201).json(created);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('[Admin] Project creation failed:', err);
+    const message = err?.message || 'Could not create project.';
+    const unavailable = /database is unavailable|DATABASE_URL|POSTGRES_URL/i.test(message);
+    return res.status(unavailable ? 503 : 500).json({
+      error: unavailable
+        ? 'Project storage is unavailable. Check the Vercel DATABASE_URL configuration and PostgreSQL connection, then try again.'
+        : message,
+    });
   }
 });
 
 apiRouter.put('/admin/web-projects/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const updated = await postgresStore.saveWebProject({ ...req.body, id: req.params.id });
-    res.json(updated);
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const updated = await postgresStore.saveWebProject({
+      ...body,
+      id: req.params.id,
+      additionalImages: Array.isArray(body.additionalImages) ? body.additionalImages.filter((url: unknown) => typeof url === 'string' && url.trim()) : [],
+      technologies: Array.isArray(body.technologies) ? body.technologies.filter((item: unknown) => typeof item === 'string' && item.trim()) : [],
+    });
+    return res.json(updated);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('[Admin] Project update failed:', err);
+    const message = err?.message || 'Could not update project.';
+    const unavailable = /database is unavailable|DATABASE_URL|POSTGRES_URL/i.test(message);
+    return res.status(unavailable ? 503 : 500).json({
+      error: unavailable
+        ? 'Project storage is unavailable. Check the Vercel DATABASE_URL configuration and PostgreSQL connection, then try again.'
+        : message,
+    });
   }
 });
 
