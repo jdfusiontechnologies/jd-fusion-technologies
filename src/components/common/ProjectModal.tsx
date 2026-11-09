@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { WebProject } from '../../types';
 import { X, ExternalLink, CheckCircle2, Globe } from 'lucide-react';
 
@@ -18,6 +18,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onStartInquiry,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageCount = [project?.mainImage, ...(project?.additionalImages || [])].filter(Boolean).length;
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [project?.id]);
+
+  useEffect(() => {
+    if (!isOpen || imageCount < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveImageIndex((current) => (current + 1) % imageCount);
+    }, 3500);
+    return () => window.clearInterval(timer);
+  }, [isOpen, project?.id, imageCount]);
 
   if (!isOpen || !project) return null;
 
@@ -114,7 +127,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF914D] hover:bg-[#f07e36] text-white text-xs font-semibold shadow-md transition-colors"
                 >
                   <Globe className="w-4 h-4" />
-                  <span>Visit Live Demo</span>
+                  <span>Visit Website</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
