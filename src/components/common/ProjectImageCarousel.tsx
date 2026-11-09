@@ -32,13 +32,15 @@ export const ProjectImageCarousel: React.FC<ProjectImageCarouselProps> = ({
     setActiveIndex(0);
   }, [imageSignature]);
 
+  const imageCount = images.length;
+
   useEffect(() => {
-    if (images.length < 2) return;
+    if (imageCount < 2) return;
     const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % images.length);
+      setActiveIndex((current) => (current + 1) % imageCount);
     }, intervalMs);
     return () => window.clearInterval(timer);
-  }, [imageSignature, intervalMs]);
+  }, [imageCount, intervalMs]);
 
   const activeImage = images[activeIndex] || mainImage;
   if (!activeImage) return null;
