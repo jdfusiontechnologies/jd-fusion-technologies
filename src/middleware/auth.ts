@@ -87,6 +87,18 @@ export const requireAdminPermission = (req: AuthenticatedRequest, res: Response,
   // The site-data response is filtered by permissions in the route handler,
   // but only after the caller has been confirmed as an administrator.
   if (module === 'site-data') return next();
+
+  // Project managers need read/upload access to the media library to manage
+  // project cover and gallery images. Keep media deletion restricted to users
+  // who also have the dedicated media permission.
+  if (
+    module === 'media' &&
+    user.permissions.includes('web-projects') &&
+    (req.method === 'GET' || (req.method === 'POST' && /\/admin\/media\/upload$/.test(requestPath)))
+  ) {
+    return next();
+  }
+
   if (user.permissions.includes(module)) return next();
   return res.status(403).json({ error: 'You do not have permission to access this administration module.' });
 };
