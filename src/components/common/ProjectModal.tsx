@@ -84,24 +84,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </div>
         </div>
 
-        {/* Gallery Thumbnails if multiple */}
-        {allImages.length > 1 && (
-          <div className="px-6 py-3 bg-stone-100 dark:bg-zinc-950 flex items-center gap-3 overflow-x-auto border-b border-stone-200 dark:border-zinc-800">
-            {allImages.map((img, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveImageIndex(idx)}
-                className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
-                  activeImageIndex === idx
-                    ? 'border-orange-500 scale-105 shadow-md'
-                    : 'border-transparent opacity-60 hover:opacity-100'
-                }`}
-              >
-                <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
+
 
         {/* Content Body */}
         <div className="p-6 sm:p-8 space-y-6">
