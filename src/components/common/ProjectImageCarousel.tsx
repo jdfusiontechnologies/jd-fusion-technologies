@@ -52,7 +52,7 @@ export const ProjectImageCarousel: React.FC<ProjectImageCarouselProps> = ({
       alt={alt}
       loading={loading}
       decoding="async"
-      className={className}
+      className={`${className} animate-in fade-in duration-700`}
     />
   );
 };
