@@ -82,7 +82,7 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
     category: 'Website Development',
     description: '',
     technologies: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Tailwind CSS'],
-    mainImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
+    mainImage: '',
     additionalImages: [],
     projectUrl: '',
     githubUrl: null,
