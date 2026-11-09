@@ -6,6 +6,7 @@ import { WhyChooseUsSection } from '../components/public/WhyChooseUsSection';
 import { TestimonialsSection } from '../components/public/TestimonialsSection';
 import { FoundersSection } from '../components/public/FoundersSection';
 import { ScrollReveal } from '../components/common/ScrollReveal';
+import { ProjectImageCarousel } from '../components/common/ProjectImageCarousel';
 import {
   Code2,
   Palette,
@@ -481,11 +482,11 @@ export const HomePage: React.FC<HomePageProps> = ({
                 className="group rounded-3xl bg-white border border-stone-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#155EEF]/50 transition-all duration-300 flex flex-col justify-between"
               >
                 <div className="aspect-16/10 overflow-hidden relative bg-stone-900">
-                  <img
-                    src={p.mainImage}
+                  <ProjectImageCarousel
+                    mainImage={p.mainImage}
+                    additionalImages={p.additionalImages}
                     alt={p.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
                   />
                 </div>
 
