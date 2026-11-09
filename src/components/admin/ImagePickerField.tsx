@@ -52,8 +52,8 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      setUploadError('Image size exceeds 15MB. Please choose a smaller photo.');
+    if (file.size > 4 * 1024 * 1024) {
+      setUploadError('Image size exceeds 4MB. Please choose a smaller photo for reliable website uploads.');
       return;
     }
 
@@ -65,33 +65,12 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
 
     try {
       const res = await api.uploadMedia(formData);
-      if (res.success && res.media?.url) {
-        onChange(res.media.url);
-      } else {
-        // Fallback to FileReader data URL if server returns non-success
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            onChange(e.target.result as string);
-          }
-        };
-        reader.readAsDataURL(file);
+      if (!res.success || !res.media?.url) {
+        throw new Error('The media service did not return an image URL.');
       }
+      onChange(res.media.url);
     } catch (err: any) {
-      // Fallback gracefully to base64 Data URL so user is never blocked
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          onChange(e.target.result as string);
-          setUploadError(null);
-        } else {
-          setUploadError(err.message || 'Failed to upload photo.');
-        }
-      };
-      reader.onerror = () => {
-        setUploadError(err.message || 'Failed to upload photo.');
-      };
-      reader.readAsDataURL(file);
+      setUploadError(err.message || 'Failed to upload photo. Please try again or insert an image URL.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
