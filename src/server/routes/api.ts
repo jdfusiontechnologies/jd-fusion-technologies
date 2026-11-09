@@ -624,11 +624,24 @@ apiRouter.post('/admin/web-projects', requireAuth, async (req: AuthenticatedRequ
 apiRouter.put('/admin/web-projects/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const existing = (await postgresStore.getWebProjects()).find((project) => project.id === req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Project not found. Refresh the project list and try again.' });
+    }
+
+    // These endpoints also receive partial updates for publish/feature toggles.
+    // Merge with the saved record so omitted fields (especially gallery images)
+    // are preserved instead of being reset to empty values.
     const updated = await postgresStore.saveWebProject({
+      ...existing,
       ...body,
       id: req.params.id,
-      additionalImages: Array.isArray(body.additionalImages) ? body.additionalImages.filter((url: unknown) => typeof url === 'string' && url.trim()) : [],
-      technologies: Array.isArray(body.technologies) ? body.technologies.filter((item: unknown) => typeof item === 'string' && item.trim()) : [],
+      additionalImages: Array.isArray(body.additionalImages)
+        ? body.additionalImages.filter((url: unknown) => typeof url === 'string' && url.trim())
+        : existing.additionalImages || [],
+      technologies: Array.isArray(body.technologies)
+        ? body.technologies.filter((item: unknown) => typeof item === 'string' && item.trim())
+        : existing.technologies || [],
     });
     return res.json(updated);
   } catch (err: any) {
