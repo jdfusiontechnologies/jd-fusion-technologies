@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import {
   Upload,
   Link2,
+  ArrowLeft,
+  ArrowRight,
   Plus,
   Trash2,
   ExternalLink,
@@ -95,6 +97,14 @@ export const MultiImagePickerField: React.FC<MultiImagePickerFieldProps> = ({
 
   const handleRemove = (index: number) => {
     onChange(values.filter((_, idx) => idx !== index));
+  };
+
+  const handleMove = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= values.length) return;
+    const reordered = [...values];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    onChange(reordered);
   };
 
   const openMediaLibrary = async () => {
@@ -231,9 +241,30 @@ export const MultiImagePickerField: React.FC<MultiImagePickerFieldProps> = ({
                 )}
                 <button
                   type="button"
+                  onClick={() => handleMove(idx, -1)}
+                  disabled={idx === 0}
+                  className="p-1.5 bg-white/20 hover:bg-white/40 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                  title="Move image earlier"
+                  aria-label="Move image earlier"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMove(idx, 1)}
+                  disabled={idx === values.length - 1}
+                  className="p-1.5 bg-white/20 hover:bg-white/40 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                  title="Move image later"
+                  aria-label="Move image later"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleRemove(idx)}
                   className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors"
                   title="Remove image"
+                  aria-label="Remove image"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
