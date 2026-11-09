@@ -72,9 +72,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         {/* Media Preview Box */}
         <div className="relative bg-stone-950 aspect-video w-full overflow-hidden flex items-center justify-center">
           <img
+            key={currentImg}
             src={currentImg}
             alt={project.title}
-            className="w-full h-full object-cover sm:object-contain"
+            className="w-full h-full object-cover sm:object-contain animate-in fade-in duration-700"
           />
 
           <div className="absolute top-4 left-4">
