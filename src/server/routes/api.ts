@@ -235,15 +235,10 @@ apiRouter.post('/public/testimonials', handleTestimonialSubmission);
 // Public Visitor Traffic Analytics Tracking
 const handleTrackVisit = async (req: Request, res: Response) => {
   try {
-    const clientIp =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip ||
-      req.socket.remoteAddress ||
-      '127.0.0.1';
-    const userAgent = (req.headers['user-agent'] as string) || 'Standard Browser';
+    // Store aggregate page-view counts only. Do not persist IP addresses,
+    // user-agent strings, referrers, or browser fingerprints for analytics.
     const path = req.body?.path || req.query?.path || '/';
-
-    const result = await postgresStore.recordVisit(clientIp, String(path), String(userAgent));
+    const result = await postgresStore.recordVisit(String(path));
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Tracking failed' });
