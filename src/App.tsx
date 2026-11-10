@@ -25,6 +25,7 @@ import { LightboxModal } from './components/common/LightboxModal';
 import { ProjectModal } from './components/common/ProjectModal';
 import { CursorSpotlight } from './components/common/CursorSpotlight';
 import { ScrollToTop } from './components/common/ScrollToTop';
+import { CookieConsentBanner } from './components/common/CookieConsentBanner';
 
 // Dedicated Multi-Page Views
 import { HomePage } from './pages/HomePage';
@@ -571,6 +572,8 @@ const MainAppContent: React.FC = () => {
           onClose={() => setSelectedGraphicImage(null)}
         />
       )}
+
+      <CookieConsentBanner />
 
       {/* Web Project Full Details & Case Study Modal */}
       {selectedWebProject && (
