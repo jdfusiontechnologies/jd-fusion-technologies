@@ -2326,7 +2326,7 @@ export class PostgresStore {
       // Keep the existing analytics table compatible, but intentionally store
       // no IP address or user-agent value. Only page path and visit time remain.
       await client.query(
-        `INSERT INTO visitor_visits (ip, path, user_agent, visited_at) VALUES ('', $1, NULL, NOW())`,
+        `INSERT INTO visitor_visits (ip, path, user_agent, referrer, device_type, visited_at) VALUES ('', $1, NULL, NULL, NULL, NOW())`,
         [visitedPath]
       );
       await client.query(
