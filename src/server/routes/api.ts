@@ -257,7 +257,7 @@ apiRouter.post('/analytics/pageview', handleTrackVisit);
 // User Contact Action Tracking (WhatsApp, Phone Call, Email)
 const handleTrackUserAction = async (req: Request, res: Response) => {
   try {
-    const { actionType, target, path: clientPath, details } = req.body || {};
+    const { actionType, target, path: clientPath } = req.body || {};
     const clientIp =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.ip ||
@@ -288,12 +288,12 @@ const handleTrackUserAction = async (req: Request, res: Response) => {
     } else if (actionType === 'inquiry') {
       type = 'contact_inquiry';
       title = 'Project Inquiry Submitted';
-      description = `Lead submitted: ${details?.name || 'Client'} (${details?.email || details?.phone || 'Contact'}).`;
+      description = 'A visitor submitted a project inquiry.';
       severity = 'success';
     } else if (actionType === 'testimonial') {
       type = 'testimonial_submitted';
       title = 'Client Testimonial Submitted';
-      description = `Review submitted by ${details?.clientName || 'Visitor'} (${details?.clientCompany || 'Client'}).`;
+      description = 'A visitor submitted a client testimonial.';
       severity = 'info';
     }
 
@@ -308,7 +308,6 @@ const handleTrackUserAction = async (req: Request, res: Response) => {
       metadata: {
         actionType,
         target,
-        details,
         timestamp: new Date().toISOString(),
       },
     });

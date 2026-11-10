@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ContactSettings, LocationSettings, Inquiry } from '../types';
 import { PageBackground } from '../components/common/PageBackground';
 import {
@@ -97,13 +97,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
       });
 
       if (result && result.success) {
-        trackUserAction('inquiry', `Contact Form (${formData.service})`, {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          service: formData.service,
-          preferredContact: formData.preferredContact,
-        });
+        trackUserAction('inquiry', `Contact Form (${formData.service})`);
 
         setSubmissionStatus({
           success: true,
@@ -303,6 +297,14 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                   className="w-full px-4 py-3 rounded-xl bg-white border border-stone-200 text-sm text-stone-900 placeholder-stone-400 focus:outline-hidden focus:border-[#155EEF] transition-colors"
                 />
               </div>
+
+              <p className="text-xs leading-relaxed text-stone-600">
+                When you submit this form, JD Fusion Technologies will use your contact details and project information to review and respond to your request. Read our{' '}
+                <Link to="/privacy" className="font-semibold text-[#155EEF] underline underline-offset-2">
+                  Privacy &amp; Cookies Notice
+                </Link>{' '}
+                for details about how we handle your information.
+              </p>
 
               <button
                 type="submit"
