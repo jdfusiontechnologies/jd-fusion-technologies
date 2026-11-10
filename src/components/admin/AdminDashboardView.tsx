@@ -321,7 +321,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">Today's Visitors</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Today's Page Views</span>
               <Activity className="w-4 h-4 text-blue-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
@@ -343,7 +343,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Week</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Week's Page Views</span>
               <Calendar className="w-4 h-4 text-orange-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
@@ -365,7 +365,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Month</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Month's Page Views</span>
               <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
@@ -387,7 +387,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Year</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Year's Page Views</span>
               <Globe className="w-4 h-4 text-purple-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
@@ -406,10 +406,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <span className="flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-blue-500" />
               <span>
-                {visitorTimeframe === 'day' && 'Daily Visitor Breakdown (Last 14 Days)'}
-                {visitorTimeframe === 'week' && 'Weekly Visitor Breakdown (Last 8 Weeks)'}
-                {visitorTimeframe === 'month' && 'Monthly Visitor Breakdown (Last 12 Months)'}
-                {visitorTimeframe === 'year' && 'Yearly Visitor Growth Breakdown (Past 4 Years)'}
+                {visitorTimeframe === 'day' && 'Daily Page Views (Last 14 Days)'}
+                {visitorTimeframe === 'week' && 'Weekly Page Views (Last 8 Weeks)'}
+                {visitorTimeframe === 'month' && 'Monthly Page Views (Last 12 Months)'}
+                {visitorTimeframe === 'year' && 'Yearly Page Views (Past 4 Years)'}
               </span>
             </span>
             <span className="text-[11px] font-mono text-stone-400">
@@ -463,12 +463,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           {/* Chart Footer Stats */}
           <div className="pt-3 border-t border-stone-200 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 dark:text-zinc-400 gap-2">
             <div className="flex items-center gap-4">
-              <span>Total Lifetime Impressions: <strong className="text-stone-900 dark:text-white font-bold">{visitorStats.totalAllTime.toLocaleString()}</strong></span>
+              <span>Total Lifetime Page Views: <strong className="text-stone-900 dark:text-white font-bold">{visitorStats.totalAllTime.toLocaleString()}</strong></span>
               <span className="hidden sm:inline">&bull;</span>
               <span className="hidden sm:inline">Bounce Rate: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">28.4%</strong></span>
             </div>
             <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-[11px]">
-              <span>Real-time audience synchronized</span>
+              <span>Page-view totals synchronised</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </div>
           </div>
