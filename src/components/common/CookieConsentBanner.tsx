@@ -42,9 +42,9 @@ export const CookieConsentBanner: React.FC = () => {
             <Cookie className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-bold text-base font-['Outfit']">Essential cookies and storage</h2>
+            <h2 className="font-bold text-base font-['Outfit']">Essential browser storage</h2>
             <p className="mt-1 text-xs sm:text-sm leading-6 text-stone-600">
-              We use essential browser storage to keep core website features working, including keeping authorised admin sessions signed in. This notice does not control or block anonymous, aggregated visitor-count analytics.
+              We use essential browser storage for core website functions, including keeping authorised admin sessions signed in. This notice is only an acknowledgement. Page-view analytics count visits without storing IP addresses or browser details in our analytics database.
             </p>
             <div className="mt-4">
               <button
