@@ -30,7 +30,7 @@ import { MultiImagePickerField } from './MultiImagePickerField';
 
 interface AdminWebProjectsViewProps {
   projects: WebProject[];
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }
 
 const CATEGORY_PRESETS = [
@@ -174,14 +174,15 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
         throw new Error('The server did not confirm that the project was saved. Please try again.');
       }
 
+      const wasEditing = Boolean(editingProject);
+      handleCloseModal();
+      await onRefresh();
       setFeedback({
         type: 'success',
-        message: editingProject
-          ? `Project "${payload.title}" updated successfully!`
-          : `New project "${payload.title}" created successfully!`,
+        message: wasEditing
+          ? `Project "${payload.title}" updated successfully.`
+          : `Project "${payload.title}" added to the website successfully!`,
       });
-      handleCloseModal();
-      onRefresh();
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save project. Your changes have not been confirmed.' });
     } finally {
