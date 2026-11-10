@@ -2317,21 +2317,24 @@ export class PostgresStore {
   }
 
   // --- Persistent Visitor & Traffic Analytics Engine ---
-  public async recordVisit(ip: string, path: string, userAgent?: string): Promise<{ success: boolean; totalToday: number }> {
+  public async recordVisit(path: string): Promise<{ success: boolean; totalToday: number }> {
     await this.requireDatabase();
-    const sanitizedIp = (ip || '').split(',')[0].trim() || '127.0.0.1';
     const visitedPath = (path || '/').slice(0, 2048);
-    const agent = (userAgent || 'Standard Web Browser').slice(0, 1024);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`INSERT INTO visitor_visits (ip, path, user_agent, visited_at) VALUES ($1, $2, $3, NOW())`, [sanitizedIp, visitedPath, agent]);
+      // Keep the existing analytics table compatible, but intentionally store
+      // no IP address or user-agent value. Only page path and visit time remain.
+      await client.query(
+        `INSERT INTO visitor_visits (ip, path, user_agent, visited_at) VALUES ('', $1, NULL, NOW())`,
+        [visitedPath]
+      );
       await client.query(
         `INSERT INTO visitor_daily_rollups (date_key, total_visits, unique_visitors, top_path, updated_at)
-         SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'), COUNT(*)::int, COUNT(DISTINCT ip)::int,
+         SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'), COUNT(*)::int, 0,
            COALESCE((SELECT path FROM visitor_visits WHERE visited_at::date = CURRENT_DATE GROUP BY path ORDER BY COUNT(*) DESC LIMIT 1), '/'), NOW()
          FROM visitor_visits WHERE visited_at::date = CURRENT_DATE
-         ON CONFLICT (date_key) DO UPDATE SET total_visits=EXCLUDED.total_visits, unique_visitors=EXCLUDED.unique_visitors, top_path=EXCLUDED.top_path, updated_at=NOW()`
+         ON CONFLICT (date_key) DO UPDATE SET total_visits=EXCLUDED.total_visits, unique_visitors=0, top_path=EXCLUDED.top_path, updated_at=NOW()`
       );
       const count = await client.query(`SELECT total_visits FROM visitor_daily_rollups WHERE date_key = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')`);
       await client.query('COMMIT');
@@ -2346,10 +2349,10 @@ export class PostgresStore {
     await this.requireDatabase();
     const [daily, weekly, monthly, yearly, totals] = await Promise.all([
       pool.query(`SELECT date_key,total_visits,unique_visitors FROM visitor_daily_rollups WHERE date_key >= TO_CHAR(CURRENT_DATE - INTERVAL '13 days','YYYY-MM-DD') ORDER BY date_key`),
-      pool.query(`SELECT TO_CHAR(DATE_TRUNC('week',visited_at),'YYYY-MM-DD') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '8 weeks' GROUP BY DATE_TRUNC('week',visited_at) ORDER BY DATE_TRUNC('week',visited_at)`),
-      pool.query(`SELECT TO_CHAR(DATE_TRUNC('month',visited_at),'YYYY-MM') AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '12 months' GROUP BY DATE_TRUNC('month',visited_at) ORDER BY DATE_TRUNC('month',visited_at)`),
-      pool.query(`SELECT EXTRACT(YEAR FROM visited_at)::int AS period,COUNT(*)::int AS visits,COUNT(DISTINCT ip)::int AS uniques FROM visitor_visits WHERE visited_at >= DATE_TRUNC('year',NOW())-INTERVAL '3 years' GROUP BY EXTRACT(YEAR FROM visited_at) ORDER BY period`),
-      pool.query(`SELECT COUNT(*) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS today,COUNT(DISTINCT ip) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS unique_today,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS this_week,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS unique_week,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS this_month,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS unique_month,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS this_year,COUNT(DISTINCT ip) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS unique_year,COUNT(*)::int AS total FROM visitor_visits`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('week',visited_at),'YYYY-MM-DD') AS period,COUNT(*)::int AS visits,0::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '8 weeks' GROUP BY DATE_TRUNC('week',visited_at) ORDER BY DATE_TRUNC('week',visited_at)`),
+      pool.query(`SELECT TO_CHAR(DATE_TRUNC('month',visited_at),'YYYY-MM') AS period,COUNT(*)::int AS visits,0::int AS uniques FROM visitor_visits WHERE visited_at >= NOW()-INTERVAL '12 months' GROUP BY DATE_TRUNC('month',visited_at) ORDER BY DATE_TRUNC('month',visited_at)`),
+      pool.query(`SELECT EXTRACT(YEAR FROM visited_at)::int AS period,COUNT(*)::int AS visits,0::int AS uniques FROM visitor_visits WHERE visited_at >= DATE_TRUNC('year',NOW())-INTERVAL '3 years' GROUP BY EXTRACT(YEAR FROM visited_at) ORDER BY period`),
+      pool.query(`SELECT COUNT(*) FILTER(WHERE visited_at::date=CURRENT_DATE)::int AS today,0::int AS unique_today,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('week',NOW()))::int AS this_week,0::int AS unique_week,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('month',NOW()))::int AS this_month,0::int AS unique_month,COUNT(*) FILTER(WHERE visited_at>=DATE_TRUNC('year',NOW()))::int AS this_year,0::int AS unique_year,COUNT(*)::int AS total FROM visitor_visits`),
     ]);
     const n=(v:unknown)=>Number(v||0);
     const dailyMap=new Map(daily.rows.map((r:any)=>[r.date_key,r]));
