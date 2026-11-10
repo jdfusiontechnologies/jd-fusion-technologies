@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
-import { api, getAuthToken, hasAnalyticsConsent } from './lib/api';
+import { api, getAuthToken } from './lib/api';
 import {
   PublicSiteData,
   AdminSiteData,
@@ -20,7 +20,6 @@ import { defaultPublicSiteData } from './data/defaultData';
 // Common UI Components
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
-import { CookieConsentBanner } from './components/common/CookieConsentBanner';
 import { WhatsAppFloatingButton } from './components/common/WhatsAppFloatingButton';
 import { LightboxModal } from './components/common/LightboxModal';
 import { ProjectModal } from './components/common/ProjectModal';
@@ -36,7 +35,6 @@ import { AboutPage } from './pages/AboutPage';
 import { InsightsPage } from './pages/InsightsPage';
 import { InsightDetailPage } from './pages/InsightDetailPage';
 import { ContactPage } from './pages/ContactPage';
-import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 
 // Admin CMS Components
 import { AdminLoginView } from './components/admin/AdminLoginView';
@@ -403,17 +401,11 @@ const MainAppContent: React.FC = () => {
     };
   }, [isAuthenticated, isAdminRoute]);
 
-  // Optional visitor analytics only run after the visitor opts in.
+  // Record page visit for visitor analytics when browsing public routes
   useEffect(() => {
-    const recordVisit = () => {
-      if (!isAdminRoute && hasAnalyticsConsent()) {
-        api.trackVisit(location.pathname).catch(() => {});
-      }
-    };
-
-    recordVisit();
-    window.addEventListener('jdfusion:consent-change', recordVisit);
-    return () => window.removeEventListener('jdfusion:consent-change', recordVisit);
+    if (!isAdminRoute) {
+      api.trackVisit(location.pathname).catch(() => {});
+    }
   }, [location.pathname, isAdminRoute]);
 
   const handleInquiryStatusChange = async (id: string, status: 'new' | 'read' | 'archived') => {
@@ -518,7 +510,6 @@ const MainAppContent: React.FC = () => {
           />
 
           <Route path="/about" element={<AboutPage data={publicData} />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
 
           <Route path="/insights" element={<InsightsPage />} />
           <Route path="/insights/:slug" element={<InsightDetailPage />} />
@@ -546,8 +537,6 @@ const MainAppContent: React.FC = () => {
         location={publicData.location}
         socials={publicData.socials}
       />
-
-      <CookieConsentBanner />
 
       {/* Interactive Floating WhatsApp Contact Trigger - only if activated by admin */}
       {(() => {

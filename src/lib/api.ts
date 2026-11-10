@@ -1,16 +1,6 @@
 import { PublicSiteData, AdminDashboardStats, Inquiry, ActivityLog, SecurityStats, Founder, VisitorStats } from '../types';
 
 const API_BASE = '/api';
-const ANALYTICS_CONSENT_KEY = 'jdfusion_cookie_consent_v1';
-
-export function hasAnalyticsConsent(): boolean {
-  try {
-    const saved = localStorage.getItem(ANALYTICS_CONSENT_KEY);
-    return saved ? JSON.parse(saved)?.analytics === true : false;
-  } catch {
-    return false;
-  }
-}
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('jdfusion_admin_token');
@@ -330,15 +320,15 @@ export const api = {
  */
 export function trackUserAction(
   actionType: 'whatsapp' | 'call' | 'email' | 'inquiry' | 'testimonial',
-  target?: string
+  target?: string,
+  details?: Record<string, any>
 ): void {
-  if (!hasAnalyticsConsent()) return;
-
   try {
     const payload = JSON.stringify({
       actionType,
       target,
       path: window.location.pathname,
+      details,
     });
 
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {

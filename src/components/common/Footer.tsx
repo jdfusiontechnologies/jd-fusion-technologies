@@ -293,16 +293,6 @@ export const Footer: React.FC<FooterProps> = ({
             <Link to="/contact" className="hover:text-zinc-300 transition-colors">
               Contact
             </Link>
-            <Link to="/privacy" className="hover:text-zinc-300 transition-colors">
-              Privacy &amp; Cookies
-            </Link>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event('jdfusion:open-cookie-preferences'))}
-              className="hover:text-zinc-300 transition-colors"
-            >
-              Cookie Settings
-            </button>
 
 
             <button
