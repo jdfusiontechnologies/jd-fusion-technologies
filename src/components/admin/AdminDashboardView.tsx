@@ -96,63 +96,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     },
   ];
 
-  // Visitor analytics data fallback
+  // Never substitute sample traffic figures for real analytics.
   const visitorStats = stats.visitorStats || {
-    today: 345,
-    thisWeek: 2150,
-    thisMonth: 8650,
-    thisYear: 89400,
-    totalAllTime: 223900,
-    uniqueToday: 262,
-    uniqueThisWeek: 1591,
-    uniqueThisMonth: 6228,
-    uniqueThisYear: 67200,
-    dailyBreakdown: [
-      { label: 'Oct 23', visits: 189, uniqueVisitors: 143 },
-      { label: 'Oct 24', visits: 210, uniqueVisitors: 160 },
-      { label: 'Oct 25', visits: 194, uniqueVisitors: 147 },
-      { label: 'Oct 26', visits: 230, uniqueVisitors: 175 },
-      { label: 'Oct 27', visits: 215, uniqueVisitors: 163 },
-      { label: 'Oct 28', visits: 248, uniqueVisitors: 188 },
-      { label: 'Oct 29', visits: 260, uniqueVisitors: 198 },
-      { label: 'Oct 30', visits: 275, uniqueVisitors: 209 },
-      { label: 'Oct 31', visits: 290, uniqueVisitors: 220 },
-      { label: 'Nov 1', visits: 310, uniqueVisitors: 235 },
-      { label: 'Nov 2', visits: 285, uniqueVisitors: 216 },
-      { label: 'Nov 3', visits: 315, uniqueVisitors: 239 },
-      { label: 'Yesterday', visits: 330, uniqueVisitors: 251 },
-      { label: 'Today', visits: 345, uniqueVisitors: 262 },
-    ],
-    weeklyBreakdown: [
-      { label: 'Week -7', visits: 1120, uniqueVisitors: 829 },
-      { label: 'Week -6', visits: 1280, uniqueVisitors: 947 },
-      { label: 'Week -5', visits: 1450, uniqueVisitors: 1073 },
-      { label: 'Week -4', visits: 1390, uniqueVisitors: 1028 },
-      { label: 'Week -3', visits: 1620, uniqueVisitors: 1198 },
-      { label: 'Week -2', visits: 1780, uniqueVisitors: 1317 },
-      { label: 'Last Week', visits: 1910, uniqueVisitors: 1413 },
-      { label: 'This Week', visits: 2150, uniqueVisitors: 1591 },
-    ],
-    monthlyBreakdown: [
-      { label: "Dec '25", visits: 4100, uniqueVisitors: 2952 },
-      { label: "Jan '26", visits: 4350, uniqueVisitors: 3132 },
-      { label: "Feb '26", visits: 4800, uniqueVisitors: 3456 },
-      { label: "Mar '26", visits: 5200, uniqueVisitors: 3744 },
-      { label: "Apr '26", visits: 5600, uniqueVisitors: 4032 },
-      { label: "May '26", visits: 5950, uniqueVisitors: 4284 },
-      { label: "Jun '26", visits: 6400, uniqueVisitors: 4608 },
-      { label: "Jul '26", visits: 6800, uniqueVisitors: 4896 },
-      { label: "Aug '26", visits: 7150, uniqueVisitors: 5148 },
-      { label: "Sep '26", visits: 7600, uniqueVisitors: 5472 },
-      { label: "Oct '26", visits: 8100, uniqueVisitors: 5832 },
-      { label: "This Month", visits: 8650, uniqueVisitors: 6228 },
-    ],
-    yearlyBreakdown: [
-      { label: '2023', visits: 24200, uniqueVisitors: 18100 },
-      { label: '2024', visits: 41800, uniqueVisitors: 31200 },
-      { label: '2025', visits: 68500, uniqueVisitors: 51800 },
-      { label: '2026 (YTD)', visits: 89400, uniqueVisitors: 67200 },
-    ],
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    thisYear: 0,
+    totalAllTime: 0,
+    uniqueToday: 0,
+    uniqueThisWeek: 0,
+    uniqueThisMonth: 0,
+    uniqueThisYear: 0,
+    dailyBreakdown: [],
+    weeklyBreakdown: [],
+    monthlyBreakdown: [],
+    yearlyBreakdown: [],
   };
 
   const getActiveBreakdown = (): VisitorBreakdownItem[] => {
@@ -321,15 +279,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">Today's Visitors</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Today's Page Views</span>
               <Activity className="w-4 h-4 text-blue-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
               {visitorStats.today.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueToday.toLocaleString()}</strong></span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+12% vs yday</span>
+              <span>Page views recorded</span>
+              <span>Today</span>
             </div>
           </div>
 
@@ -343,15 +301,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Week</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Week's Page Views</span>
               <Calendar className="w-4 h-4 text-orange-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
               {visitorStats.thisWeek.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisWeek.toLocaleString()}</strong></span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+18% trend</span>
+              <span>Page views recorded</span>
+              <span>This week</span>
             </div>
           </div>
 
@@ -365,15 +323,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Month</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Month's Page Views</span>
               <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
               {visitorStats.thisMonth.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisMonth.toLocaleString()}</strong></span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+24% MoM</span>
+              <span>Page views recorded</span>
+              <span>This month</span>
             </div>
           </div>
 
@@ -387,15 +345,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-stone-500 dark:text-zinc-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">This Year</span>
+              <span className="text-xs font-bold uppercase tracking-wider">This Year's Page Views</span>
               <Globe className="w-4 h-4 text-purple-500" />
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-stone-900 dark:text-white">
               {visitorStats.thisYear.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisYear.toLocaleString()}</strong></span>
-              <span className="text-purple-600 dark:text-purple-400 font-semibold">Annual YTD</span>
+              <span>Page views recorded</span>
+              <span>Year to date</span>
             </div>
           </div>
         </div>
@@ -406,10 +364,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <span className="flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-blue-500" />
               <span>
-                {visitorTimeframe === 'day' && 'Daily Visitor Breakdown (Last 14 Days)'}
-                {visitorTimeframe === 'week' && 'Weekly Visitor Breakdown (Last 8 Weeks)'}
-                {visitorTimeframe === 'month' && 'Monthly Visitor Breakdown (Last 12 Months)'}
-                {visitorTimeframe === 'year' && 'Yearly Visitor Growth Breakdown (Past 4 Years)'}
+                {visitorTimeframe === 'day' && 'Daily Page Views (Last 14 Days)'}
+                {visitorTimeframe === 'week' && 'Weekly Page Views (Last 8 Weeks)'}
+                {visitorTimeframe === 'month' && 'Monthly Page Views (Last 12 Months)'}
+                {visitorTimeframe === 'year' && 'Yearly Page Views (Past 4 Years)'}
               </span>
             </span>
             <span className="text-[11px] font-mono text-stone-400">
@@ -431,7 +389,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   {/* Hover Floating Tooltip */}
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-12 z-20 pointer-events-none bg-stone-900 dark:bg-zinc-800 text-white text-[10px] py-1 px-2 rounded-lg shadow-lg whitespace-nowrap text-center">
                     <p className="font-bold">{item.visits.toLocaleString()} visits</p>
-                    <p className="text-[9px] text-stone-400">{item.uniqueVisitors.toLocaleString()} unique</p>
+                    <p className="text-[9px] text-stone-400">Aggregated page views</p>
                   </div>
 
                   {/* Value Above Bar */}
@@ -463,12 +421,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           {/* Chart Footer Stats */}
           <div className="pt-3 border-t border-stone-200 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 dark:text-zinc-400 gap-2">
             <div className="flex items-center gap-4">
-              <span>Total Lifetime Impressions: <strong className="text-stone-900 dark:text-white font-bold">{visitorStats.totalAllTime.toLocaleString()}</strong></span>
-              <span className="hidden sm:inline">&bull;</span>
-              <span className="hidden sm:inline">Bounce Rate: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">28.4%</strong></span>
+              <span>Total Lifetime Page Views: <strong className="text-stone-900 dark:text-white font-bold">{visitorStats.totalAllTime.toLocaleString()}</strong></span>
             </div>
             <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-[11px]">
-              <span>Real-time audience synchronized</span>
+              <span>Page-view totals synchronised</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </div>
           </div>
