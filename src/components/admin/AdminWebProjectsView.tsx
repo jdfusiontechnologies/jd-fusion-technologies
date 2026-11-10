@@ -496,9 +496,9 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
 
       {/* Project Modal: Add or Edit Any Project */}
       {(isCreating || editingProject) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-5 my-8 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-zinc-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto overscroll-contain">
+          <div className="w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 my-2 sm:my-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-stone-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 pb-3 pt-1">
               <div>
                 <h3 className="text-lg font-bold font-['Outfit'] text-stone-900 dark:text-white">
                   {editingProject ? 'Edit Project' : 'Publish Any Project to Website'}
@@ -531,6 +531,9 @@ export const AdminWebProjectsView: React.FC<AdminWebProjectsViewProps> = ({ proj
                   <input
                     type="text"
                     required
+                    autoFocus
+                    autoComplete="off"
+                    aria-label="Project title"
                     placeholder="e.g. Apex Hospital HMS, Nairobi Sacco ERP, Fleet Telematics Engine"
                     value={formData.title || ''}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
