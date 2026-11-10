@@ -328,7 +328,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {visitorStats.today.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueToday.toLocaleString()}</strong></span>
+              <span>Page views recorded</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+12% vs yday</span>
             </div>
           </div>
@@ -350,7 +350,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {visitorStats.thisWeek.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisWeek.toLocaleString()}</strong></span>
+              <span>Page views recorded</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+18% trend</span>
             </div>
           </div>
@@ -372,7 +372,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {visitorStats.thisMonth.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisMonth.toLocaleString()}</strong></span>
+              <span>Page views recorded</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">+24% MoM</span>
             </div>
           </div>
@@ -394,7 +394,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {visitorStats.thisYear.toLocaleString()}
             </div>
             <div className="flex items-center justify-between mt-2 text-[11px] text-stone-500 dark:text-zinc-400">
-              <span>Unique: <strong className="text-stone-700 dark:text-zinc-300">{visitorStats.uniqueThisYear.toLocaleString()}</strong></span>
+              <span>Page views recorded</span>
               <span className="text-purple-600 dark:text-purple-400 font-semibold">Annual YTD</span>
             </div>
           </div>
@@ -431,7 +431,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   {/* Hover Floating Tooltip */}
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-12 z-20 pointer-events-none bg-stone-900 dark:bg-zinc-800 text-white text-[10px] py-1 px-2 rounded-lg shadow-lg whitespace-nowrap text-center">
                     <p className="font-bold">{item.visits.toLocaleString()} visits</p>
-                    <p className="text-[9px] text-stone-400">{item.uniqueVisitors.toLocaleString()} unique</p>
+                    <p className="text-[9px] text-stone-400">Aggregated page views</p>
                   </div>
 
                   {/* Value Above Bar */}
